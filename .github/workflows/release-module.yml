@@ -1,0 +1,111 @@
+name: Release Module
+
+on:
+  push:
+    tags:
+      - "*/v*" # e.g. Aks/v1.0.0, KeyVault/v2.1.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          MODULE="${TAG%%/*}"
+          VERSION="${TAG#*/}"
+          echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Module: $MODULE, Version: $VERSION"
+
+      - name: Validate module exists
+        run: |
+          if [ ! -d "${{ steps.parse.outputs.module }}" ]; then
+            echo "ERROR: Module '${{ steps.parse.outputs.module }}' does not exist"
+            exit 1
+          fi
+
+      - name: Terraform Validate
+        working-directory: ${{ steps.parse.outputs.module }}
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.parse.outputs.tag }}
+          name: "${{ steps.parse.outputs.module }} ${{ steps.parse.outputs.version }}"
+          body: |
+            ## Module: `${{ steps.parse.outputs.module }}`
+
+            ### Usage
+
+            ```hcl
+            module "${{ steps.parse.outputs.module }}" {
+              source = "github.com/${{ github.repository }}//${{ steps.parse.outputs.module }}?ref=${{ steps.parse.outputs.tag }}"
+            }
+            ```
+
+            **Full Changelog**: https://github.com/${{ github.repository }}/compare/.../${{ steps.parse.outputs.tag }}
+          generate_release_notes: true
+
+  sync-to-registry-repo:
+    needs: release
+    runs-on: ubuntu-latest
+    # Uncomment when ready to publish to Terraform Registry
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse tag
+        id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          MODULE="${TAG%%/*}"
+          VERSION="${TAG#*/}"
+          REPO_NAME="terraform-azurerm-$(echo $MODULE | tr '[:upper:]' '[:lower:]')"
+          echo "module=$MODULE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "repo=$REPO_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Sync to satellite repo
+        env:
+          GH_TOKEN: ${{ secrets.REGISTRY_REPOS_PAT }}
+        run: |
+          MODULE=${{ steps.parse.outputs.module }}
+          VERSION=${{ steps.parse.outputs.version }}
+          REPO=${{ steps.parse.outputs.repo }}
+          ORG="${{ github.repository_owner }}"
+
+          # Clone or create satellite repo
+          gh repo clone "$ORG/$REPO" satellite 2>/dev/null || {
+            gh repo create "$ORG/$REPO" --public \
+              --description "Terraform module for Azure $MODULE"
+            git clone "https://x-access-token:${GH_TOKEN}@github.com/$ORG/$REPO.git" satellite
+          }
+
+          # Sync module files
+          rsync -av --delete --exclude='.git' "$MODULE/" satellite/
+
+          # Copy root files
+          cp LICENSE satellite/ 2>/dev/null || true
+
+          # Commit and tag
+          cd satellite
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || {
+            git commit -m "chore: sync $MODULE@$VERSION from monorepo"
+            git push origin main
+          }
+          git tag "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"

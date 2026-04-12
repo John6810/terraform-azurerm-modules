@@ -1,0 +1,47 @@
+###############################################################
+# MODULE: ResourceLock - Variables
+###############################################################
+
+variable "locks" {
+  description = <<-EOT
+  A map of management locks to create. The map key is deliberately
+  arbitrary to avoid issues where map keys may be unknown at plan time.
+
+  - `scope`      - (Required) Azure resource ID to lock (RG or resource).
+  - `name`       - (Optional) Lock name. Defaults to "lock-CanNotDelete".
+  - `lock_level` - (Optional) Lock level: "CanNotDelete" or "ReadOnly". Defaults to "CanNotDelete".
+  - `notes`      - (Optional) Lock description.
+
+  WARNING: CanNotDelete locks also block `terraform destroy`.
+  Set enable_locks = false for maintenance operations.
+  EOT
+  type = map(object({
+    scope      = string
+    name       = optional(string, "lock-CanNotDelete")
+    lock_level = optional(string, "CanNotDelete")
+    notes      = optional(string, "Lock applied by Terragrunt — Azure Landing Zone")
+  }))
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for l in var.locks :
+      can(regex("^/subscriptions/[^/]+/resourceGroups/", l.scope))
+    ])
+    error_message = "Each lock scope must be a valid Azure resource ID (Resource Group or child resource)."
+  }
+
+  validation {
+    condition = alltrue([
+      for l in var.locks :
+      contains(["CanNotDelete", "ReadOnly"], l.lock_level)
+    ])
+    error_message = "lock_level must be either \"CanNotDelete\" or \"ReadOnly\"."
+  }
+}
+
+variable "enable_locks" {
+  type        = bool
+  default     = true
+  description = "Set to false to disable all locks (e.g. for maintenance terraform destroy)."
+}
