@@ -35,6 +35,7 @@ output "kubelet_identity" {
 output "resource" {
   description = "The complete AKS cluster resource object"
   value       = azurerm_kubernetes_cluster.this
+  sensitive   = true
 }
 
 output "kube_config_raw" {
