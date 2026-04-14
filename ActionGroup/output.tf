@@ -15,4 +15,5 @@ output "name" {
 output "resource" {
   description = "The complete Action Group resource object"
   value       = azurerm_monitor_action_group.this
+  sensitive   = true
 }
