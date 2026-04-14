@@ -4,6 +4,7 @@
 output "resource" {
   description = "The complete ALZ Management module output object"
   value       = module.alz_management
+  sensitive   = true
 }
 
 ###############################################################
