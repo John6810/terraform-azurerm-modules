@@ -181,7 +181,8 @@ resource "azurerm_linux_virtual_machine" "this" {
   lifecycle {
     prevent_destroy = true
     ignore_changes = [
-      source_image_reference, # PAN-OS upgrades are managed manually (avoid VM replacement)
+      source_image_reference,     # PAN-OS upgrades are managed manually (avoid VM replacement)
+      allow_extension_operations, # Azure Policy may install extensions; don't fight drift
     ]
   }
 }
