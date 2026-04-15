@@ -45,7 +45,7 @@ variable "custom_tables" {
     header used by the ingesting clients (Data Collector API).
 
     Fields:
-    - `columns`          - (Required) Map of column name → Azure LAW column type (string/int/long/real/boolean/dateTime/guid/dynamic).
+    - `columns`          - (Required) Map of column name → Azure LAW column type. Valid types (LOWERCASE): string, int, long, real, boolean, datetime, guid, dynamic. `TimeGenerated` (datetime) is mandatory.
     - `retention_days`   - (Optional) Retention in days. Default inherits from workspace.
     - `total_retention_days` - (Optional) Total retention (archive included). Default inherits.
     - `plan`             - (Optional) Analytics | Basic. Default Analytics.
