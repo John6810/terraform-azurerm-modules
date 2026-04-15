@@ -23,13 +23,13 @@ data "azuread_group" "this" {
 resource "azurerm_role_assignment" "groups" {
   for_each = var.group_assignments
 
-  scope             = each.value.scope
-  principal_id      = data.azuread_group.this[each.value.group_name].object_id
+  scope                = each.value.scope
+  principal_id         = data.azuread_group.this[each.value.group_name].object_id
   role_definition_id   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
   role_definition_name = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
-  condition         = each.value.condition
-  condition_version = each.value.condition_version
-  description       = each.value.description
+  condition            = each.value.condition
+  condition_version    = each.value.condition_version
+  description          = each.value.description
 }
 
 ###############################################################

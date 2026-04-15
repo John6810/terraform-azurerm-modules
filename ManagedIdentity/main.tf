@@ -11,8 +11,8 @@ resource "time_static" "time" {}
 # Example:    id-api-prod-gwc-aks
 ###############################################################
 locals {
-  computed_name                    = "id-${var.subscription_acronym}-${var.environment}-${var.region_code}-${var.workload}"
-  name                             = var.name != null ? var.name : local.computed_name
+  computed_name                      = "id-${var.subscription_acronym}-${var.environment}-${var.region_code}-${var.workload}"
+  name                               = var.name != null ? var.name : local.computed_name
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
 }
 
@@ -50,11 +50,11 @@ resource "azurerm_management_lock" "this" {
 resource "azurerm_federated_identity_credential" "this" {
   for_each = var.federated_identity_credentials
 
-  name                       = each.value.name
-  user_assigned_identity_id  = azurerm_user_assigned_identity.this.id
-  audience                   = each.value.audience
-  issuer                     = each.value.issuer
-  subject                    = each.value.subject
+  name                      = each.value.name
+  user_assigned_identity_id = azurerm_user_assigned_identity.this.id
+  audience                  = each.value.audience
+  issuer                    = each.value.issuer
+  subject                   = each.value.subject
 }
 
 ###############################################################

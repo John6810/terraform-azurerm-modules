@@ -12,8 +12,8 @@ resource "time_static" "time" {}
 # Example:    stapiprodgwcblob01
 ###############################################################
 locals {
-  computed_name                    = "st${var.subscription_acronym}${var.environment}${var.region_code}${var.workload}"
-  name                             = var.name != null ? var.name : local.computed_name
+  computed_name                      = "st${var.subscription_acronym}${var.environment}${var.region_code}${var.workload}"
+  name                               = var.name != null ? var.name : local.computed_name
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
 }
 

@@ -48,13 +48,13 @@ variable "private_endpoints" {
   - `tags`                           - (Optional) Tags specific to this endpoint.
   EOT
   type = map(object({
-    name                         = string
-    resource_id                  = string
-    subresource_names            = list(string)
-    is_manual_connection         = optional(bool, false)
-    request_message              = optional(string)
-    private_ip_address           = optional(string)
-    member_name                  = optional(string, "default")
+    name                          = string
+    resource_id                   = string
+    subresource_names             = list(string)
+    is_manual_connection          = optional(bool, false)
+    request_message               = optional(string)
+    private_ip_address            = optional(string)
+    member_name                   = optional(string, "default")
     custom_network_interface_name = optional(string)
     private_dns_zone_group = optional(object({
       name                 = optional(string, "default")

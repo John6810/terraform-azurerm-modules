@@ -12,8 +12,8 @@ resource "time_static" "time" {}
 # Example:    crapiprodgwc001
 ###############################################################
 locals {
-  computed_name                    = "cr${var.subscription_acronym}${var.environment}${var.region_code}${var.workload}"
-  name                             = var.name != null ? var.name : local.computed_name
+  computed_name                      = "cr${var.subscription_acronym}${var.environment}${var.region_code}${var.workload}"
+  name                               = var.name != null ? var.name : local.computed_name
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
 }
 

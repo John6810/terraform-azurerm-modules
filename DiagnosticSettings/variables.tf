@@ -18,15 +18,15 @@ variable "diagnostic_settings" {
   - `marketplace_partner_resource_id`          - (Optional) Marketplace partner resource ID.
   EOT
   type = map(object({
-    name                              = string
-    target_resource_id                = string
-    logs                              = optional(list(string), [])
-    metrics                           = optional(list(string), [])
-    log_analytics_workspace_id        = optional(string)
-    storage_account_id                = optional(string)
-    event_hub_authorization_rule_id   = optional(string)
-    event_hub_name                    = optional(string)
-    marketplace_partner_resource_id   = optional(string)
+    name                            = string
+    target_resource_id              = string
+    logs                            = optional(list(string), [])
+    metrics                         = optional(list(string), [])
+    log_analytics_workspace_id      = optional(string)
+    storage_account_id              = optional(string)
+    event_hub_authorization_rule_id = optional(string)
+    event_hub_name                  = optional(string)
+    marketplace_partner_resource_id = optional(string)
   }))
   nullable = false
 

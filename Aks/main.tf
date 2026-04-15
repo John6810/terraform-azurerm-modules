@@ -163,19 +163,19 @@ resource "azurerm_kubernetes_cluster" "this" {
 resource "azurerm_kubernetes_cluster_node_pool" "this" {
   for_each = var.user_node_pools
 
-  name                  = each.value.name
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
-  vm_size               = each.value.vm_size
-  os_disk_type          = each.value.os_disk_type
-  os_disk_size_gb       = each.value.os_disk_size_gb
-  vnet_subnet_id        = var.node_subnet_id
-  zones                 = coalesce(each.value.zones, var.availability_zones)
-  auto_scaling_enabled  = each.value.enable_auto_scaling
-  min_count             = each.value.enable_auto_scaling ? each.value.min_count : null
-  max_count             = each.value.enable_auto_scaling ? each.value.max_count : null
-  node_count            = each.value.enable_auto_scaling ? null : coalesce(each.value.node_count, each.value.min_count)
-  node_labels                = each.value.labels
-  node_taints                = each.value.taints
+  name                        = each.value.name
+  kubernetes_cluster_id       = azurerm_kubernetes_cluster.this.id
+  vm_size                     = each.value.vm_size
+  os_disk_type                = each.value.os_disk_type
+  os_disk_size_gb             = each.value.os_disk_size_gb
+  vnet_subnet_id              = var.node_subnet_id
+  zones                       = coalesce(each.value.zones, var.availability_zones)
+  auto_scaling_enabled        = each.value.enable_auto_scaling
+  min_count                   = each.value.enable_auto_scaling ? each.value.min_count : null
+  max_count                   = each.value.enable_auto_scaling ? each.value.max_count : null
+  node_count                  = each.value.enable_auto_scaling ? null : coalesce(each.value.node_count, each.value.min_count)
+  node_labels                 = each.value.labels
+  node_taints                 = each.value.taints
   temporary_name_for_rotation = coalesce(each.value.temporary_name_for_rotation, "${substr(each.value.name, 0, 9)}tmp")
 
   upgrade_settings {

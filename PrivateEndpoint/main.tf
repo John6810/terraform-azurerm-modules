@@ -11,10 +11,10 @@ resource "time_static" "time" {}
 resource "azurerm_private_endpoint" "this" {
   for_each = var.private_endpoints
 
-  name                         = each.value.name
-  location                     = var.location
-  resource_group_name          = var.resource_group_name
-  subnet_id                    = var.subnet_id
+  name                          = each.value.name
+  location                      = var.location
+  resource_group_name           = var.resource_group_name
+  subnet_id                     = var.subnet_id
   custom_network_interface_name = each.value.custom_network_interface_name
 
   private_service_connection {

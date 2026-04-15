@@ -15,8 +15,8 @@ data "azurerm_client_config" "current" {}
 # WARNING: Max 24 characters!
 ###############################################################
 locals {
-  computed_name                    = "kv-${var.subscription_acronym}-${var.environment}-${var.region_code}-${var.workload}"
-  name                             = var.name != null ? var.name : local.computed_name
+  computed_name                      = "kv-${var.subscription_acronym}-${var.environment}-${var.region_code}-${var.workload}"
+  name                               = var.name != null ? var.name : local.computed_name
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
 }
 
