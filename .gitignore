@@ -3,6 +3,7 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+!StorageAccount/terraform.tfvars
 *.tfplan
 .terraform.lock.hcl
 crash.log
