@@ -23,41 +23,80 @@ variable "location" {
 }
 
 variable "workload" {
-  description = "Workload name (used for tagging / conventions). Not part of alert naming."
+  description = "Workload name (used for tagging / DCE-DCR naming). Not part of alert naming."
   type        = string
   default     = "custom-alerts"
 }
 
 variable "resource_group_name" {
-  description = "Resource group that will hold the alert rules."
+  description = "Resource group that will hold the alert rules, DCE and DCR."
   type        = string
 }
 
 variable "law_id" {
-  description = "Resource ID of the Log Analytics Workspace the KQL queries run against."
+  description = "Resource ID of the Log Analytics Workspace the KQL queries run against (and where DCR data is routed)."
   type        = string
 }
 
 variable "custom_tables" {
   description = <<-EOT
-    Custom Log Analytics tables (`*_CL`) to create for alert queries that do not have a source table yet.
-    Key = table name WITHOUT the `_CL` suffix (Azure appends it automatically). Must match `Log-Type`
-    header used by the ingesting clients (Data Collector API).
+    Custom Log Analytics tables (`*_CL`) consumed by alert queries.
+    Key = table name WITHOUT the `_CL` suffix (Azure appends it automatically).
 
     Fields:
-    - `columns`          - (Required) Map of column name → Azure LAW column type. Valid types (LOWERCASE): string, int, long, real, boolean, datetime, guid, dynamic. `TimeGenerated` (datetime) is mandatory.
-    - `retention_days`   - (Optional) Retention in days. Default inherits from workspace.
-    - `total_retention_days` - (Optional) Total retention (archive included). Default inherits.
-    - `plan`             - (Optional) Analytics | Basic. Default Analytics.
+    - `columns`               - (Required) Map of column name -> LAW column type. Valid types (lowercase):
+                                string, int, long, real, boolean, datetime, guid, dynamic.
+                                DO NOT declare `TimeGenerated` - the platform adds it automatically as
+                                datetime on Analytics tables. If declared it is filtered out by the module.
+    - `retention_days`        - (Optional) Interactive retention in days. Default inherits from workspace.
+    - `total_retention_days`  - (Optional) Total retention (archive included). Default inherits.
+    - `plan`                  - (Optional) Analytics | Basic. Default Analytics.
+    - `ingestion`             - (Optional) Enables a DCR stream for this table. When set, the module
+                                provisions a DCE + DCR + role assignments so that clients can POST
+                                events via the modern Logs Ingestion API (OAuth). Nested fields:
+        * `input_columns`   - (Required) Schema (map name -> type) the client sends in each JSON row.
+                              May differ from the table columns: the DCR transforms it into the
+                              table schema via `transform_kql`.
+        * `transform_kql`   - (Optional) KQL transform applied on each row before it is written to
+                              the table. Default:
+                              `source | extend TimeGenerated = coalesce(todatetime(TimeGenerated), now())`
+                              which promotes a string `TimeGenerated` field (or falls back to now()).
   EOT
   type = map(object({
     columns              = map(string)
     retention_days       = optional(number)
     total_retention_days = optional(number)
     plan                 = optional(string, "Analytics")
+    ingestion = optional(object({
+      input_columns = map(string)
+      transform_kql = optional(string)
+    }))
   }))
   default  = {}
   nullable = false
+}
+
+variable "ingestion_principal_ids" {
+  description = <<-EOT
+    Object IDs of the principals (typically CI/CD Service Principals or workload identities)
+    that must be allowed to POST events to the DCR via the Logs Ingestion API. The module
+    grants each one "Monitoring Metrics Publisher" at the DCR scope. Ignored if no
+    `ingestion` block is declared on any `custom_tables` entry.
+  EOT
+  type        = list(string)
+  default     = []
+  nullable    = false
+}
+
+variable "ingestion_public_network_access_enabled" {
+  description = <<-EOT
+    Whether the DCE accepts traffic from the public internet. Default true so that
+    Azure DevOps Microsoft-hosted agents can reach it. Set to false when the DCE is
+    fronted by a Private Endpoint via AMPLS and the ingesting clients run on the
+    private network (e.g. self-hosted ADO agents on an AKS cluster in the hub).
+  EOT
+  type        = bool
+  default     = true
 }
 
 variable "action_group_ids" {
@@ -112,7 +151,7 @@ variable "alerts" {
 }
 
 variable "tags" {
-  description = "Tags applied to every alert rule."
+  description = "Tags applied to every alert rule, DCE and DCR."
   type        = map(string)
   default     = {}
 }
