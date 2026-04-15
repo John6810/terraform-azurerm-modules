@@ -1,0 +1,66 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separateMajorReleases",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+
+  "description": "terraform-azurerm-modules — Azure provider + AVM submodule bumps. Bumped weekly. Activation: install the Mend Renovate GitHub App on this repo.",
+
+  "timezone": "Europe/Luxembourg",
+  "schedule": [
+    "after 6am and before 10am every weekday"
+  ],
+
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+
+  "labels": ["renovate", "dependencies"],
+  "assignees": ["John6810"],
+
+  "terraform": {
+    "enabled": true
+  },
+
+  "packageRules": [
+    {
+      "description": "Group minor+patch provider updates across every module — single PR.",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["required_provider"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Terraform providers (non-major)",
+      "groupSlug": "terraform-providers-nonmajor"
+    },
+    {
+      "description": "Major provider bumps isolated — review breaking changes individually.",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["required_provider"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["renovate", "dependencies", "major-bump"],
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "AVM / registry module bumps — 1 PR per module to keep diffs small.",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["module"],
+      "matchUpdateTypes": ["minor", "patch"]
+    },
+    {
+      "description": "AVM / registry module MAJOR bumps isolated with cool-down period.",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["module"],
+      "matchUpdateTypes": ["major"],
+      "labels": ["renovate", "dependencies", "major-bump"],
+      "minimumReleaseAge": "7 days"
+    }
+  ],
+
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "minimumReleaseAge": "0 days"
+  }
+}
