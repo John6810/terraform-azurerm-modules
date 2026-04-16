@@ -26,4 +26,5 @@ output "primary_access_key" {
 output "resource" {
   description = "The complete Storage Account resource object"
   value       = azurerm_storage_account.this
+  sensitive   = true
 }
