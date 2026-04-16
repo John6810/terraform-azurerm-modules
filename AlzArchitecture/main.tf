@@ -33,7 +33,7 @@ module "alz_architecture" {
             emailSecurityContact = jsonencode({ value = var.email_security_contact })
           }
         }
-        Deploy-NSG-FlowLogs = {
+        Deploy-VNet-FlowLogs = {
           parameters = {
             storageId           = jsonencode({ value = var.nsg_flowlogs_storage_id })
             networkWatcherName  = jsonencode({ value = var.nsg_flowlogs_network_watcher_name })
