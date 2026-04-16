@@ -129,33 +129,6 @@ variable "log_analytics_workspace_id" {
 }
 
 ###############################################################
-# POLICY - NSG FLOW LOGS
-###############################################################
-variable "nsg_flowlogs_storage_id" {
-  type        = string
-  default     = ""
-  description = "Storage Account resource ID for NSG Flow Logs"
-}
-
-variable "nsg_flowlogs_workspace_id" {
-  type        = string
-  default     = ""
-  description = "Log Analytics Workspace GUID for Traffic Analytics"
-}
-
-variable "nsg_flowlogs_workspace_resource_id" {
-  type        = string
-  default     = ""
-  description = "Log Analytics Workspace resource ID for Traffic Analytics"
-}
-
-variable "nsg_flowlogs_network_watcher_name" {
-  type        = string
-  default     = "NetworkWatcher_germanywestcentral"
-  description = "Network Watcher name for the NSG region"
-}
-
-###############################################################
 # POLICY - BACKUP
 ###############################################################
 variable "backup_exclusion_tags" {
