@@ -33,6 +33,14 @@ module "alz_architecture" {
             emailSecurityContact = jsonencode({ value = var.email_security_contact })
           }
         }
+        Deploy-NSG-FlowLogs = {
+          parameters = {
+            storageId           = jsonencode({ value = var.nsg_flowlogs_storage_id })
+            networkWatcherName  = jsonencode({ value = var.nsg_flowlogs_network_watcher_name })
+            workspaceId         = jsonencode({ value = var.nsg_flowlogs_workspace_id })
+            workspaceResourceId = jsonencode({ value = var.nsg_flowlogs_workspace_resource_id })
+          }
+        }
       }
     }
     "mg-plat-${var.architecture_name}" = {
