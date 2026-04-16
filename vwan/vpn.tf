@@ -117,7 +117,7 @@ resource "azurerm_vpn_gateway_connection" "connections" {
     for_each = each.value.routing != null ? [each.value.routing] : []
 
     content {
-      associated_route_table = routing.value.associated_route_table
+      associated_route_table = coalesce(routing.value.associated_route_table, azurerm_virtual_hub.hubs[each.value.virtual_hub_key].default_route_table_id)
 
       dynamic "propagated_route_table" {
         for_each = routing.value.propagated_route_tables != null ? [routing.value.propagated_route_tables] : []
