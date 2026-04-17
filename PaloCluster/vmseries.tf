@@ -120,6 +120,7 @@ resource "azurerm_linux_virtual_machine" "this" {
   admin_password                  = coalesce(var.admin_password, random_password.admin.result)
   disable_password_authentication = var.admin_ssh_public_key != null
   allow_extension_operations      = false
+  encryption_at_host_enabled      = var.encryption_at_host_enabled
 
   network_interface_ids = [
     azurerm_network_interface.mgmt[each.key].id,

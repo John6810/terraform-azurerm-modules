@@ -196,6 +196,23 @@ variable "admin_ssh_public_key" {
   description = "SSH public key for authentication. Mutually exclusive with admin_password."
 }
 
+variable "encryption_at_host_enabled" {
+  type        = bool
+  default     = true
+  description = <<-EOT
+  Enables Encryption at Host on the VMs. Encrypts temp disk + cache + pagefile
+  at the hypervisor level (complements disk_encryption_set_id which covers
+  the managed disks with CMK).
+
+  Prerequisite: feature 'Microsoft.Compute/EncryptionAtHost' must be
+  registered on the subscription:
+    az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+    az provider register --namespace Microsoft.Compute
+
+  Requires a compatible VM size (Dsv4+, Esv4+, etc. — not D_v3 or similar).
+  EOT
+}
+
 variable "os_disk_size_gb" {
   type        = number
   default     = 80
