@@ -12,7 +12,7 @@ jobs:
     outputs:
       modules: ${{ steps.changes.outputs.modules }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 
@@ -36,7 +36,7 @@ jobs:
       matrix:
         module: ${{ fromJson(needs.detect-changes.outputs.modules) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -58,7 +58,7 @@ jobs:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - uses: hashicorp/setup-terraform@v3
         with:
