@@ -58,14 +58,22 @@ resource "azurerm_key_vault" "this" {
 }
 
 ###############################################################
-# RBAC — Deployer -> Key Vault Administrator
+# RBAC — Admins -> Key Vault Administrator
+#
+# Historically this assigned to data.azurerm_client_config.current.object_id
+# which caused ping-pong between pipeline SPN and interactive user (forces
+# replacement on each apply by a different identity). Replaced by an
+# explicit list so pipeline SPN + platform admins are all granted at once.
+#
+# For prod, point this at an Entra ID group (GRP_AZ_PIM_*) and keep a
+# single principal_id in the list (the group OID). This enables PIM JIT.
 ###############################################################
 resource "azurerm_role_assignment" "kv_admin" {
-  count = var.enable_disk_encryption ? 1 : 0
+  for_each = var.enable_disk_encryption ? toset(var.kv_admin_principal_ids) : toset([])
 
   scope                = azurerm_key_vault.this[0].id
   role_definition_name = "Key Vault Administrator"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = each.value
 }
 
 ###############################################################

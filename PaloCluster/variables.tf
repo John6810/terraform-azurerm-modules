@@ -264,6 +264,25 @@ variable "kv_secrets_readers" {
   description = "List of Entra ID group object IDs granted Key Vault Secrets User on the cluster KV."
 }
 
+variable "kv_admin_principal_ids" {
+  type        = list(string)
+  default     = []
+  description = <<-EOT
+  List of Entra ID principal object IDs (users, groups, or service principals)
+  granted 'Key Vault Administrator' on the cluster KV.
+
+  Must include every identity that will run 'terragrunt apply' on this module:
+    - The pipeline SPN (e.g. spn-azdo-alz-001 OID)
+    - Any local admin deploying from their workstation
+
+  Avoids the ping-pong replacement triggered when the previous auto-
+  assignment used 'data.azurerm_client_config.current.object_id'.
+
+  For prod, prefer a single Entra ID group OID (GRP_AZ_PIM_*) containing
+  the authorized members — enables JIT activation and a clean audit trail.
+  EOT
+}
+
 variable "kv_allowed_ips" {
   type        = list(string)
   default     = []
