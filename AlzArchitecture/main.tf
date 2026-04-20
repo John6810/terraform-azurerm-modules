@@ -8,7 +8,7 @@
 
 module "alz_architecture" {
   source             = "Azure/avm-ptn-alz/azurerm"
-  version            = "0.13.0"
+  version            = "0.19.1"
   architecture_name  = var.architecture_name
   parent_resource_id = var.management_root_id
   location           = var.location
