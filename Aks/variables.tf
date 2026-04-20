@@ -257,6 +257,24 @@ variable "system_pool_os_disk_size_gb" {
   default     = 128
 }
 
+variable "system_pool_host_encryption_enabled" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+  Enables Encryption at Host on the system node pool. Encrypts temp disk,
+  cache, and pagefile at the hypervisor level (complements etcd KMS v2
+  which is cluster-wide).
+
+  Prerequisite: 'Microsoft.Compute/EncryptionAtHost' feature must be
+  registered on the subscription:
+    az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+    az provider register --namespace Microsoft.Compute
+
+  Requires a compatible VM size (Dsv4+, Esv4+, Ddsv5+, etc.).
+  Toggling this flag triggers a rotation of the node pool (surge + drain).
+  EOT
+}
+
 variable "availability_zones" {
   type        = list(string)
   description = "Availability zones"
@@ -289,6 +307,7 @@ variable "user_node_pools" {
   - `labels`                      - (Optional) Node labels.
   - `taints`                      - (Optional) Node taints.
   - `temporary_name_for_rotation` - (Optional) Temp name for rotation (max 12 chars).
+  - `host_encryption_enabled`     - (Optional) Enables Encryption at Host on the pool. Defaults to false. Requires feature registration.
   EOT
   type = map(object({
     name                        = string
@@ -303,6 +322,7 @@ variable "user_node_pools" {
     labels                      = optional(map(string), {})
     taints                      = optional(list(string), [])
     temporary_name_for_rotation = optional(string)
+    host_encryption_enabled     = optional(bool, false)
   }))
   default  = {}
   nullable = false

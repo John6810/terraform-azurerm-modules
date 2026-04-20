@@ -70,6 +70,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     auto_scaling_enabled         = var.system_pool_auto_scaling
     os_disk_type                 = var.system_pool_os_disk_type
     os_disk_size_gb              = var.system_pool_os_disk_size_gb
+    host_encryption_enabled      = var.system_pool_host_encryption_enabled
     vnet_subnet_id               = var.node_subnet_id
     zones                        = var.availability_zones
     only_critical_addons_enabled = true
@@ -178,6 +179,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   vm_size                     = each.value.vm_size
   os_disk_type                = each.value.os_disk_type
   os_disk_size_gb             = each.value.os_disk_size_gb
+  host_encryption_enabled     = each.value.host_encryption_enabled
   vnet_subnet_id              = var.node_subnet_id
   zones                       = coalesce(each.value.zones, var.availability_zones)
   auto_scaling_enabled        = each.value.enable_auto_scaling
