@@ -327,6 +327,28 @@ variable "image_cleaner_enabled" {
   default     = false
 }
 
+variable "vertical_pod_autoscaler_enabled" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+  Enables the Vertical Pod Autoscaler addon (recommender, updater,
+  admission-controller). Per-workload mode is configured via
+  VerticalPodAutoscaler CRDs in Kubernetes:
+    updateMode: "Off"     -> recommend-only, no mutation (safe dry-run)
+    updateMode: "Initial" -> apply at pod creation
+    updateMode: "Auto"    -> resize live (intrusive, kills+recreates pods)
+
+  Enabling the addon is safe — workloads must explicitly opt-in by
+  creating a VPA object.
+  EOT
+}
+
+variable "keda_enabled" {
+  type        = bool
+  default     = false
+  description = "Enable KEDA (Kubernetes Event-Driven Autoscaler) addon."
+}
+
 variable "image_cleaner_interval_hours" {
   type        = number
   description = "Interval in hours for image cleanup"

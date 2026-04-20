@@ -111,6 +111,16 @@ resource "azurerm_kubernetes_cluster" "this" {
   # ─── Managed Prometheus (ama-metrics agent) ───────────────
   monitor_metrics {}
 
+  # ─── Workload Autoscaler Profile (VPA + KEDA) ──────────────
+  # Enables the VPA addon (recommender, updater, admission-controller).
+  # Per-workload mode (Off/Initial/Auto) configured via VerticalPodAutoscaler
+  # CRDs in Kubernetes — NOT at cluster level. Default usage: create VPA
+  # objects with updateMode=Off for recommend-only, safe dry-run.
+  workload_autoscaler_profile {
+    vertical_pod_autoscaler_enabled = var.vertical_pod_autoscaler_enabled
+    keda_enabled                    = var.keda_enabled
+  }
+
   # ─── Azure Policy Add-on ──────────────────────────────────
   azure_policy_enabled = true
 
