@@ -257,6 +257,17 @@ variable "system_pool_os_disk_size_gb" {
   default     = 128
 }
 
+variable "system_pool_only_critical_addons_enabled" {
+  type        = bool
+  default     = true
+  description = <<-EOT
+  If true, taints the system node pool with CriticalAddonsOnly=true:NoSchedule
+  so only system-critical addons land on it. Set to false in non-prod clusters
+  when third-party agents (Rancher Fleet, Helm operations, etc.) don't tolerate
+  the taint and patching their charts is not desired.
+  EOT
+}
+
 variable "system_pool_host_encryption_enabled" {
   type        = bool
   default     = false

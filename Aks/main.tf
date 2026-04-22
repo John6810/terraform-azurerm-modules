@@ -73,7 +73,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     host_encryption_enabled      = var.system_pool_host_encryption_enabled
     vnet_subnet_id               = var.node_subnet_id
     zones                        = var.availability_zones
-    only_critical_addons_enabled = true
+    only_critical_addons_enabled = var.system_pool_only_critical_addons_enabled
     temporary_name_for_rotation  = "tmpsys"
 
     upgrade_settings {
