@@ -71,6 +71,43 @@ variable "email_security_contact" {
   description = "Email for Defender for Cloud security contact"
 }
 
+variable "defender_plans" {
+  type = object({
+    apis         = optional(string, "DeployIfNotExists")
+    app_services = optional(string, "DeployIfNotExists")
+    arm          = optional(string, "DeployIfNotExists")
+    containers   = optional(string, "DeployIfNotExists")
+    cosmos_dbs   = optional(string, "DeployIfNotExists")
+    cspm         = optional(string, "DeployIfNotExists")
+    key_vault    = optional(string, "DeployIfNotExists")
+    oss_db       = optional(string, "DeployIfNotExists")
+    servers      = optional(string, "DeployIfNotExists")
+    sql          = optional(string, "DeployIfNotExists")
+    sql_on_vm    = optional(string, "DeployIfNotExists")
+    storage      = optional(string, "DeployIfNotExists")
+  })
+  default     = {}
+  description = <<-EOT
+  Defender for Cloud plan activation, passed to Deploy-MDFC-Config-H224 via
+  policy_assignments_to_modify. Each plan value must be either
+  "DeployIfNotExists" (enables the plan at Standard pricing) or "Disabled"
+  (skips the plan).
+
+  Default: all plans enabled (pay-per-use with 0 resources ≈ 0 cost,
+  auto-coverage when a workload is deployed). Override individual plans
+  by setting them to "Disabled" if your org has a specific exclusion.
+  EOT
+  nullable    = false
+
+  validation {
+    condition = alltrue([
+      for k, v in var.defender_plans :
+      contains(["DeployIfNotExists", "Disabled"], v)
+    ])
+    error_message = "Each defender_plans value must be 'DeployIfNotExists' or 'Disabled'."
+  }
+}
+
 variable "amba_resource_group_name" {
   type        = string
   default     = "rg-amba-monitoring-001"

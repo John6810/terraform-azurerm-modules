@@ -31,6 +31,23 @@ module "alz_architecture" {
         Deploy-MDFC-Config-H224 = {
           parameters = {
             emailSecurityContact = jsonencode({ value = var.email_security_contact })
+            # Defender plans — activated everywhere under mg-lzr. Most plans
+            # are pay-per-use on actual resources: zero resources ≈ zero
+            # cost, but coverage is automatic as soon as a workload of that
+            # type arrives. Cleaner than maintaining exemptions + missing
+            # coverage on first deployment.
+            enableAscForApis        = jsonencode({ value = var.defender_plans.apis })
+            enableAscForAppServices = jsonencode({ value = var.defender_plans.app_services })
+            enableAscForArm         = jsonencode({ value = var.defender_plans.arm })
+            enableAscForContainers  = jsonencode({ value = var.defender_plans.containers })
+            enableAscForCosmosDbs   = jsonencode({ value = var.defender_plans.cosmos_dbs })
+            enableAscForCspm        = jsonencode({ value = var.defender_plans.cspm })
+            enableAscForKeyVault    = jsonencode({ value = var.defender_plans.key_vault })
+            enableAscForOssDb       = jsonencode({ value = var.defender_plans.oss_db })
+            enableAscForServers     = jsonencode({ value = var.defender_plans.servers })
+            enableAscForSql         = jsonencode({ value = var.defender_plans.sql })
+            enableAscForSqlOnVm     = jsonencode({ value = var.defender_plans.sql_on_vm })
+            enableAscForStorage     = jsonencode({ value = var.defender_plans.storage })
           }
         }
       }
