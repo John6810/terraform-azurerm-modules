@@ -73,18 +73,18 @@ variable "email_security_contact" {
 
 variable "defender_plans" {
   type = object({
-    apis         = optional(string, "DeployIfNotExists")
-    app_services = optional(string, "DeployIfNotExists")
-    arm          = optional(string, "DeployIfNotExists")
-    containers   = optional(string, "DeployIfNotExists")
-    cosmos_dbs   = optional(string, "DeployIfNotExists")
-    cspm         = optional(string, "DeployIfNotExists")
-    key_vault    = optional(string, "DeployIfNotExists")
-    oss_db       = optional(string, "DeployIfNotExists")
-    servers      = optional(string, "DeployIfNotExists")
-    sql          = optional(string, "DeployIfNotExists")
-    sql_on_vm    = optional(string, "DeployIfNotExists")
-    storage      = optional(string, "DeployIfNotExists")
+    app_services                      = optional(string, "DeployIfNotExists")
+    arm                               = optional(string, "DeployIfNotExists")
+    containers                        = optional(string, "DeployIfNotExists")
+    cosmos_dbs                        = optional(string, "DeployIfNotExists")
+    cspm                              = optional(string, "DeployIfNotExists")
+    key_vault                         = optional(string, "DeployIfNotExists")
+    oss_db                            = optional(string, "DeployIfNotExists")
+    servers                           = optional(string, "DeployIfNotExists")
+    servers_vulnerability_assessments = optional(string, "DeployIfNotExists")
+    sql                               = optional(string, "DeployIfNotExists")
+    sql_on_vm                         = optional(string, "DeployIfNotExists")
+    storage                           = optional(string, "DeployIfNotExists")
   })
   default     = {}
   description = <<-EOT
@@ -96,6 +96,9 @@ variable "defender_plans" {
   Default: all plans enabled (pay-per-use with 0 resources ≈ 0 cost,
   auto-coverage when a workload is deployed). Override individual plans
   by setting them to "Disabled" if your org has a specific exclusion.
+
+  Note: Defender for APIs is not exposed by the Deploy-MDFC-Config_20240319
+  policySet and must be managed out-of-band (or via a future policy version).
   EOT
   nullable    = false
 

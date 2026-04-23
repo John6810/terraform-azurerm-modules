@@ -36,18 +36,22 @@ module "alz_architecture" {
             # cost, but coverage is automatic as soon as a workload of that
             # type arrives. Cleaner than maintaining exemptions + missing
             # coverage on first deployment.
-            enableAscForApis        = jsonencode({ value = var.defender_plans.apis })
-            enableAscForAppServices = jsonencode({ value = var.defender_plans.app_services })
-            enableAscForArm         = jsonencode({ value = var.defender_plans.arm })
-            enableAscForContainers  = jsonencode({ value = var.defender_plans.containers })
-            enableAscForCosmosDbs   = jsonencode({ value = var.defender_plans.cosmos_dbs })
-            enableAscForCspm        = jsonencode({ value = var.defender_plans.cspm })
-            enableAscForKeyVault    = jsonencode({ value = var.defender_plans.key_vault })
-            enableAscForOssDb       = jsonencode({ value = var.defender_plans.oss_db })
-            enableAscForServers     = jsonencode({ value = var.defender_plans.servers })
-            enableAscForSql         = jsonencode({ value = var.defender_plans.sql })
-            enableAscForSqlOnVm     = jsonencode({ value = var.defender_plans.sql_on_vm })
-            enableAscForStorage     = jsonencode({ value = var.defender_plans.storage })
+            #
+            # Note: Deploy-MDFC-Config_20240319 policySet does NOT expose
+            # an enableAscForApis parameter — Defender for APIs must be
+            # managed separately (out-of-band or via another assignment).
+            enableAscForAppServices                     = jsonencode({ value = var.defender_plans.app_services })
+            enableAscForArm                             = jsonencode({ value = var.defender_plans.arm })
+            enableAscForContainers                      = jsonencode({ value = var.defender_plans.containers })
+            enableAscForCosmosDbs                       = jsonencode({ value = var.defender_plans.cosmos_dbs })
+            enableAscForCspm                            = jsonencode({ value = var.defender_plans.cspm })
+            enableAscForKeyVault                        = jsonencode({ value = var.defender_plans.key_vault })
+            enableAscForOssDb                           = jsonencode({ value = var.defender_plans.oss_db })
+            enableAscForServers                         = jsonencode({ value = var.defender_plans.servers })
+            enableAscForServersVulnerabilityAssessments = jsonencode({ value = var.defender_plans.servers_vulnerability_assessments })
+            enableAscForSql                             = jsonencode({ value = var.defender_plans.sql })
+            enableAscForSqlOnVm                         = jsonencode({ value = var.defender_plans.sql_on_vm })
+            enableAscForStorage                         = jsonencode({ value = var.defender_plans.storage })
           }
         }
       }
