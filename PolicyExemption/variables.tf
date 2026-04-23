@@ -1,21 +1,13 @@
 ###############################################################
 # MODULE: PolicyExemption - Variables
-# Creates Azure Policy exemptions scoped to a Resource Group.
+# Creates Azure Policy exemptions scoped to Resource Groups.
+# Each exemption targets its own Resource Group, so one deployment
+# can cover multiple RGs inside the same subscription.
 ###############################################################
-
-variable "resource_group_id" {
-  type        = string
-  description = "Full resource ID of the Resource Group where exemptions apply."
-  nullable    = false
-
-  validation {
-    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+$", var.resource_group_id))
-    error_message = "resource_group_id must be a valid Azure Resource Group resource ID."
-  }
-}
 
 variable "exemptions" {
   type = map(object({
+    resource_group_id               = string
     policy_assignment_id            = string
     exemption_category              = optional(string, "Waiver")
     display_name                    = string
@@ -27,6 +19,9 @@ variable "exemptions" {
   description = <<-EOT
   Map of policy exemptions. Key = exemption name (must be unique within scope).
 
+  - resource_group_id               : full resource ID of the Resource Group the
+                                       exemption applies to. Enables one deployment
+                                       to cover multiple RGs within the same sub.
   - policy_assignment_id            : full resource ID of the policy assignment to exempt.
   - exemption_category              : 'Waiver' (accept risk) or 'Mitigated' (compensating control).
   - display_name                    : human-readable name shown in the portal.
@@ -37,6 +32,13 @@ variable "exemptions" {
   - metadata                        : free-form tags (owner, ticket ID, etc.).
   EOT
   nullable    = false
+
+  validation {
+    condition = alltrue([
+      for e in var.exemptions : can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+$", e.resource_group_id))
+    ])
+    error_message = "Each exemption's resource_group_id must be a valid Azure Resource Group resource ID."
+  }
 
   validation {
     condition = alltrue([
