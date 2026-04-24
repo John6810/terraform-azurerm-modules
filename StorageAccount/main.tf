@@ -79,10 +79,6 @@ resource "azurerm_storage_account" "this" {
       CreatedOn = formatdate("DD-MM-YYYY hh:mm", timeadd(time_static.time.id, "1h"))
     }
   )
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 ###############################################################
