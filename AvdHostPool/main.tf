@@ -42,3 +42,13 @@ resource "azurerm_virtual_desktop_host_pool" "this" {
     }
   )
 }
+
+###############################################################
+# RESOURCE: Registration Info (rotated by Terraform — re-apply to refresh)
+###############################################################
+resource "azurerm_virtual_desktop_host_pool_registration_info" "this" {
+  count = var.create_registration_info ? 1 : 0
+
+  hostpool_id     = azurerm_virtual_desktop_host_pool.this.id
+  expiration_date = timeadd(time_static.time.id, "${var.registration_expiration_hours}h")
+}

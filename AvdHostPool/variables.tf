@@ -131,6 +131,26 @@ variable "public_network_access" {
   }
 }
 
+###############################################################
+# REGISTRATION TOKEN (for session host joining)
+###############################################################
+variable "create_registration_info" {
+  type        = bool
+  description = "If true, creates a registration token usable by session host DSC extension to register to the host pool."
+  default     = false
+}
+
+variable "registration_expiration_hours" {
+  type        = number
+  description = "Registration token lifetime in hours (1-720). Defaults to 48h."
+  default     = 48
+
+  validation {
+    condition     = var.registration_expiration_hours >= 1 && var.registration_expiration_hours <= 720
+    error_message = "registration_expiration_hours must be between 1 and 720 (30 days)."
+  }
+}
+
 variable "friendly_name" {
   type        = string
   description = "Display name shown in clients"
