@@ -83,8 +83,9 @@ resource "azurerm_windows_virtual_machine" "this" {
   vtpm_enabled        = var.enable_trusted_launch
 
   os_disk {
-    name                 = "osdisk-${each.value.vm_name}"
-    caching              = var.os_disk.caching
+    name = "osdisk-${each.value.vm_name}"
+    # Ephemeral OS requires caching=ReadOnly (Azure constraint)
+    caching              = var.os_disk.ephemeral ? "ReadOnly" : var.os_disk.caching
     storage_account_type = var.os_disk.storage_account_type
     disk_size_gb         = var.os_disk.disk_size_gb
 
