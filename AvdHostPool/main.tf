@@ -29,6 +29,7 @@ resource "azurerm_virtual_desktop_host_pool" "this" {
   preferred_app_group_type = var.preferred_app_group_type
   start_vm_on_connect      = var.start_vm_on_connect
   validate_environment     = var.validate_environment
+  public_network_access    = var.public_network_access
 
   friendly_name         = var.friendly_name
   description           = var.description

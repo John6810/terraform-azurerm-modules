@@ -120,6 +120,17 @@ variable "validate_environment" {
   default     = false
 }
 
+variable "public_network_access" {
+  type        = string
+  description = "Controls public endpoint: 'Enabled', 'Disabled', 'EnabledForClientsOnly', 'EnabledForSessionHostsOnly'."
+  default     = "Enabled"
+
+  validation {
+    condition     = contains(["Enabled", "Disabled", "EnabledForClientsOnly", "EnabledForSessionHostsOnly"], var.public_network_access)
+    error_message = "public_network_access must be 'Enabled', 'Disabled', 'EnabledForClientsOnly', or 'EnabledForSessionHostsOnly'."
+  }
+}
+
 variable "friendly_name" {
   type        = string
   description = "Display name shown in clients"
