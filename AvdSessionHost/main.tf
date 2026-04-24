@@ -148,18 +148,24 @@ resource "azurerm_virtual_machine_extension" "avd_dsc" {
   type_handler_version       = "2.83"
   auto_upgrade_minor_version = true
 
+  # Microsoft's AddSessionHost DSC expects a pscredential-style token.
+  # Public side uses PrivateSettingsRef to reference the secret in protected settings.
   settings = jsonencode({
     modulesUrl            = var.avd_dsc_artifact_url
     configurationFunction = "Configuration.ps1\\AddSessionHost"
     properties = {
       hostPoolName = var.hostpool_name
-      aadJoin      = true
+      registrationInfoTokenCredential = {
+        UserName = "PLACEHOLDER_DO_NOT_USE"
+        Password = "PrivateSettingsRef:RegistrationInfoToken"
+      }
+      aadJoin = true
     }
   })
 
   protected_settings = jsonencode({
-    properties = {
-      registrationInfoToken = var.hostpool_registration_token
+    Items = {
+      RegistrationInfoToken = var.hostpool_registration_token
     }
   })
 
