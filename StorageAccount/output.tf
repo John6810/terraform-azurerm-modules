@@ -23,6 +23,22 @@ output "primary_access_key" {
   sensitive   = true
 }
 
+output "primary_file_endpoint" {
+  description = "Primary Azure Files endpoint URL"
+  value       = azurerm_storage_account.this.primary_file_endpoint
+}
+
+output "file_shares" {
+  description = "Map of file share key => { id, name, url }"
+  value = {
+    for k, v in azurerm_storage_share.this : k => {
+      id   = v.id
+      name = v.name
+      url  = v.url
+    }
+  }
+}
+
 output "resource" {
   description = "The complete Storage Account resource object"
   value       = azurerm_storage_account.this

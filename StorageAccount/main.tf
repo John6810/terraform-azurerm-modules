@@ -54,6 +54,24 @@ resource "azurerm_storage_account" "this" {
     }
   }
 
+  dynamic "azure_files_authentication" {
+    for_each = var.azure_files_authentication != null ? [var.azure_files_authentication] : []
+    content {
+      directory_type                 = azure_files_authentication.value.directory_type
+      default_share_level_permission = azure_files_authentication.value.default_share_level_permission
+    }
+  }
+
+  dynamic "network_rules" {
+    for_each = var.network_rules != null ? [var.network_rules] : []
+    content {
+      default_action             = network_rules.value.default_action
+      bypass                     = network_rules.value.bypass
+      virtual_network_subnet_ids = network_rules.value.virtual_network_subnet_ids
+      ip_rules                   = network_rules.value.ip_rules
+    }
+  }
+
   tags = merge(
     var.tags,
     {
@@ -75,6 +93,18 @@ resource "azurerm_storage_container" "this" {
   name                  = each.value.name
   storage_account_id    = azurerm_storage_account.this.id
   container_access_type = each.value.access_type
+}
+
+###############################################################
+# RESOURCE: File Shares (Azure Files)
+###############################################################
+resource "azurerm_storage_share" "this" {
+  for_each = var.file_shares
+
+  name               = each.value.name
+  storage_account_id = azurerm_storage_account.this.id
+  quota              = each.value.quota_gb
+  access_tier        = each.value.access_tier
 }
 
 ###############################################################

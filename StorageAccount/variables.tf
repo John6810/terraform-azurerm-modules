@@ -181,6 +181,75 @@ variable "containers" {
 }
 
 ###############################################################
+# FILE SHARES (Azure Files)
+###############################################################
+variable "file_shares" {
+  description = <<-EOT
+  A map of file shares to create on the Storage Account (requires account_kind = FileStorage for Premium).
+
+  - `name`        - (Required) File share name (3-63 chars, lowercase, numbers, hyphens).
+  - `quota_gb`    - (Required) Provisioned capacity in GiB (Premium min 100, max 102400).
+  - `access_tier` - (Optional) "Premium" for FileStorage, or Hot/Cool/TransactionOptimized for Standard.
+  EOT
+  type = map(object({
+    name        = string
+    quota_gb    = number
+    access_tier = optional(string)
+  }))
+  default  = {}
+  nullable = false
+}
+
+###############################################################
+# AZURE FILES AUTHENTICATION (Entra Kerberos / AD DS / AADDS)
+###############################################################
+variable "azure_files_authentication" {
+  description = <<-EOT
+  Identity-based authentication for Azure Files shares.
+
+  - `directory_type`                 - (Required) "AADDS", "AD", or "AADKERB" (Entra Kerberos).
+  - `default_share_level_permission` - (Optional) Default RBAC at share level: None, StorageFileDataSmbShareReader,
+                                       StorageFileDataSmbShareContributor, StorageFileDataSmbShareElevatedContributor.
+  EOT
+  type = object({
+    directory_type                 = string
+    default_share_level_permission = optional(string)
+  })
+  default = null
+
+  validation {
+    condition     = var.azure_files_authentication == null || contains(["AADDS", "AD", "AADKERB"], try(var.azure_files_authentication.directory_type, ""))
+    error_message = "directory_type must be 'AADDS', 'AD', or 'AADKERB'."
+  }
+}
+
+###############################################################
+# NETWORK RULES (firewall + VNet service endpoints)
+###############################################################
+variable "network_rules" {
+  description = <<-EOT
+  Storage Account firewall rules. When null, no network_rules block is created (portal default).
+
+  - `default_action`             - (Required) "Allow" or "Deny".
+  - `bypass`                     - (Optional) Services allowed to bypass: list of AzureServices, Logging, Metrics, None.
+  - `virtual_network_subnet_ids` - (Optional) Subnet IDs with service endpoint to Microsoft.Storage.
+  - `ip_rules`                   - (Optional) IPv4 CIDR ranges allowed.
+  EOT
+  type = object({
+    default_action             = string
+    bypass                     = optional(list(string), ["AzureServices"])
+    virtual_network_subnet_ids = optional(list(string), [])
+    ip_rules                   = optional(list(string), [])
+  })
+  default = null
+
+  validation {
+    condition     = var.network_rules == null || contains(["Allow", "Deny"], try(var.network_rules.default_action, ""))
+    error_message = "network_rules.default_action must be 'Allow' or 'Deny'."
+  }
+}
+
+###############################################################
 # RBAC & LOCK
 ###############################################################
 variable "role_assignments" {
