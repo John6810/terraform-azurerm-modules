@@ -25,7 +25,10 @@ variable "secrets" {
     - `special`        - (Optional) Include special chars. Defaults to true.
     - `override_special` - (Optional) Restrict special chars to this set.
   - `content_type`    - (Optional) Metadata describing the secret (e.g. "password", "key").
-  - `expiration_date` - (Optional) ISO 8601 expiration timestamp (e.g. "2027-01-01T00:00:00Z").
+  - `expiration_date` - (Optional) Explicit ISO 8601 expiration (e.g. "2027-01-01T00:00:00Z").
+                        Mutually exclusive with expiration_days.
+  - `expiration_days` - (Optional) Days from creation; rendered via time_offset for stability.
+                        Required by ALZ policy "Secrets should have max validity period".
   - `tags`            - (Optional) Tags on the secret.
   EOT
   type = map(object({
@@ -38,6 +41,7 @@ variable "secrets" {
     }))
     content_type    = optional(string)
     expiration_date = optional(string)
+    expiration_days = optional(number)
     tags            = optional(map(string), {})
   }))
   nullable = false
@@ -48,5 +52,13 @@ variable "secrets" {
       (v.value != null) != (v.generate != null) # exactly one must be set
     ])
     error_message = "Each secret must have exactly one of `value` or `generate` set."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.secrets :
+      !(v.expiration_date != null && v.expiration_days != null)
+    ])
+    error_message = "Each secret must have at most one of `expiration_date` or `expiration_days`, not both."
   }
 }

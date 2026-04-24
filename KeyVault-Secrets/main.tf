@@ -4,7 +4,8 @@
 ###############################################################
 
 locals {
-  generated_secrets = { for k, v in var.secrets : k => v if v.generate != null }
+  generated_secrets   = { for k, v in var.secrets : k => v if v.generate != null }
+  time_offset_secrets = { for k, v in var.secrets : k => v if v.expiration_days != null }
 }
 
 ###############################################################
@@ -19,6 +20,15 @@ resource "random_password" "this" {
 }
 
 ###############################################################
+# RESOURCE: Expiration Timestamps (stable across applies)
+###############################################################
+resource "time_offset" "expiration" {
+  for_each = local.time_offset_secrets
+
+  offset_days = each.value.expiration_days
+}
+
+###############################################################
 # RESOURCE: Key Vault Secrets
 ###############################################################
 resource "azurerm_key_vault_secret" "this" {
@@ -29,7 +39,7 @@ resource "azurerm_key_vault_secret" "this" {
 
   key_vault_id    = var.key_vault_id
   content_type    = each.value.content_type
-  expiration_date = each.value.expiration_date
+  expiration_date = try(time_offset.expiration[each.key].rfc3339, each.value.expiration_date)
   tags            = each.value.tags
 
   # Ignore value drift so we can rotate out-of-band without Terraform reverting.
