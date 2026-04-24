@@ -152,9 +152,8 @@ resource "azurerm_virtual_machine_extension" "avd_dsc" {
     modulesUrl            = var.avd_dsc_artifact_url
     configurationFunction = "Configuration.ps1\\AddSessionHost"
     properties = {
-      hostPoolName          = var.hostpool_name
-      registrationInfoToken = "PLACEHOLDER"
-      aadJoin               = true
+      hostPoolName = var.hostpool_name
+      aadJoin      = true
     }
   })
 
