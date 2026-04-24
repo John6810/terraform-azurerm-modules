@@ -43,7 +43,8 @@ resource "azurerm_storage_account" "this" {
   }
 
   dynamic "blob_properties" {
-    for_each = var.blob_delete_retention_days != null ? [1] : []
+    # FileStorage (Premium Azure Files) doesn't support blob_properties
+    for_each = var.account_kind != "FileStorage" && var.blob_delete_retention_days != null ? [1] : []
     content {
       delete_retention_policy {
         days = var.blob_delete_retention_days
