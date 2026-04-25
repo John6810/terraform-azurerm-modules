@@ -25,6 +25,7 @@ resource "azurerm_role_assignment" "groups" {
 
   scope                = each.value.scope
   principal_id         = data.azuread_group.this[each.value.group_name].object_id
+  principal_type       = "Group"
   role_definition_id   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
   role_definition_name = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
   condition            = each.value.condition

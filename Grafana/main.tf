@@ -52,6 +52,7 @@ resource "azurerm_role_assignment" "identity" {
 
   scope                = each.value.scope
   principal_id         = azurerm_user_assigned_identity.this.principal_id
+  principal_type       = "ServicePrincipal"
   role_definition_id   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
   role_definition_name = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
 }
@@ -94,6 +95,7 @@ resource "azurerm_role_assignment" "grafana_admin" {
 
   scope                = azurerm_dashboard_grafana.this.id
   principal_id         = each.value
+  principal_type       = "Group"
   role_definition_name = "Grafana Admin"
 }
 
@@ -102,6 +104,7 @@ resource "azurerm_role_assignment" "grafana_editor" {
 
   scope                = azurerm_dashboard_grafana.this.id
   principal_id         = each.value
+  principal_type       = "Group"
   role_definition_name = "Grafana Editor"
 }
 
@@ -110,5 +113,6 @@ resource "azurerm_role_assignment" "grafana_viewer" {
 
   scope                = azurerm_dashboard_grafana.this.id
   principal_id         = each.value
+  principal_type       = "Group"
   role_definition_name = "Grafana Viewer"
 }
