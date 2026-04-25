@@ -41,6 +41,15 @@ resource "azurerm_virtual_desktop_host_pool" "this" {
       CreatedOn = formatdate("DD-MM-YYYY hh:mm", timeadd(time_static.time.id, "1h"))
     }
   )
+
+  # Scaling plans dynamically swap load_balancer_type per phase
+  # (BreadthFirst at peak, DepthFirst during ramp-down/off-peak).
+  # Without ignore_changes, every terragrunt apply would fight the
+  # scaling plan's runtime mutation and cause permanent drift.
+  # The Terraform value here remains the initial baseline at create time.
+  lifecycle {
+    ignore_changes = [load_balancer_type]
+  }
 }
 
 ###############################################################
