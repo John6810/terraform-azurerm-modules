@@ -105,6 +105,11 @@ resource "azurerm_key_vault" "this" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(local.kv_name) >= 3 && length(local.kv_name) <= 24
+      error_message = "Computed Key Vault name '${local.kv_name}' is ${length(local.kv_name)} chars; must be 3-24. Reduce subscription_acronym/region_code/workload, or pass a shorter kv_suffix, or override via kv_name."
+    }
   }
 }
 
