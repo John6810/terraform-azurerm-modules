@@ -71,6 +71,31 @@ variable "resource_group_name" {
 }
 
 ###############################################################
+# LOCK
+###############################################################
+variable "lock" {
+  type = object({
+    kind = string
+    name = optional(string)
+  })
+  default     = null
+  description = <<-EOT
+  Controls the Resource Lock configuration for this resource. Note that
+  the resource also carries an unconditional `lifecycle.prevent_destroy`
+  guard at the Terraform level — this variable adds a second, Azure-side
+  guard that survives state loss/refresh.
+
+  - `kind` - (Required) "CanNotDelete" or "ReadOnly".
+  - `name` - (Optional) Lock name. Generated from kind if not specified.
+  EOT
+
+  validation {
+    condition     = var.lock != null ? contains(["CanNotDelete", "ReadOnly"], var.lock.kind) : true
+    error_message = "Lock kind must be either \"CanNotDelete\" or \"ReadOnly\"."
+  }
+}
+
+###############################################################
 # TAGS
 ###############################################################
 variable "tags" {
