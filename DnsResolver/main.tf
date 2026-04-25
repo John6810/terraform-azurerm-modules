@@ -48,7 +48,7 @@ resource "azurerm_private_dns_resolver" "this" {
 }
 
 ###############################################################
-# RESOURCE: Inbound Endpoint ��� receives DNS queries from VNets
+# RESOURCE: Inbound Endpoint — receives DNS queries from VNets
 ###############################################################
 resource "azurerm_private_dns_resolver_inbound_endpoint" "this" {
   name                    = "in-${local.name}"

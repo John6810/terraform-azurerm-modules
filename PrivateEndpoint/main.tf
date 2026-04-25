@@ -59,14 +59,3 @@ resource "azurerm_private_endpoint" "this" {
   )
 }
 
-###############################################################
-# DATA: Private Endpoint Connections (for IP retrieval)
-###############################################################
-data "azurerm_private_endpoint_connection" "this" {
-  for_each = azurerm_private_endpoint.this
-
-  name                = each.value.name
-  resource_group_name = var.resource_group_name
-
-  depends_on = [azurerm_private_endpoint.this]
-}
