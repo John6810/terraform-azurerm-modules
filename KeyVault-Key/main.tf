@@ -27,6 +27,8 @@ resource "azurerm_key_vault_key" "this" {
   not_before_date = each.value.not_before_date
   expiration_date = coalesce(each.value.expiration_date, time_offset.expiry_plus_2y.rfc3339)
 
+  tags = each.value.tags
+
   dynamic "rotation_policy" {
     for_each = each.value.rotation_policy != null ? [each.value.rotation_policy] : []
     content {
