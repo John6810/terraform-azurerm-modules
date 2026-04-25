@@ -58,6 +58,24 @@ variable "region" {
   }
 }
 
+variable "workload" {
+  type        = string
+  description = <<-EOT
+  Workload identifier (e.g. "obew", "aks", "apim"). When set, inserted
+  into the custom names template between the resource short_name and
+  the environment to avoid cross-workload name collisions on shared
+  scopes — notably required for Palo Alto custom roles assigned at
+  subscription/MG scope where the role name must be globally unique
+  across env+workload (CLAUDE.md gotcha #8).
+  EOT
+  default     = null
+
+  validation {
+    condition     = var.workload == null || can(regex("^[a-z0-9][a-z0-9-]{0,30}$", var.workload))
+    error_message = "workload must be 1 to 31 characters: lowercase letters, digits, hyphens."
+  }
+}
+
 variable "unique_seed" {
   type        = string
   description = "Seed for generating unique names (passed to Azure naming module)"

@@ -25,6 +25,7 @@ locals {
   suffix      = length(var.suffix) > 0 ? "-${join("-", var.suffix)}" : ""
   environment = var.environment != null && var.environment != "" ? "-${var.environment}" : ""
   region      = var.region != null && var.region != "" ? "-${var.region}" : ""
+  workload    = var.workload != null && var.workload != "" ? "-${var.workload}" : ""
 
   custom_resource_types = merge(
     {
@@ -34,6 +35,7 @@ locals {
       palo_alto_zone               = "palozone"
       palo_alto_virtual_router     = "palovr"
       palo_alto_security_policy    = "palopol"
+      palo_alto_custom_role        = "palorole"
       route_table_route            = "route"
       nsg_security_rule            = "nsgr"
       subnet_nsg_association       = "snsga"
@@ -48,7 +50,7 @@ locals {
 
   custom_names = {
     for type, short_name in local.custom_resource_types :
-    type => "${local.prefix}${short_name}${local.environment}${local.region}${local.suffix}"
+    type => "${local.prefix}${short_name}${local.workload}${local.environment}${local.region}${local.suffix}"
   }
 }
 
