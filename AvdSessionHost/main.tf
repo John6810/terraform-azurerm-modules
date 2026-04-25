@@ -82,6 +82,14 @@ resource "azurerm_windows_virtual_machine" "this" {
   secure_boot_enabled = var.enable_trusted_launch
   vtpm_enabled        = var.enable_trusted_launch
 
+  # AHB / M365 entitlement — avoids paying full Windows compute price.
+  license_type = var.license_type
+
+  # Patch orchestration via Update Manager (modern AVD pattern).
+  patch_mode                                             = var.patch_mode
+  bypass_platform_safety_checks_on_user_schedule_enabled = var.patch_mode == "AutomaticByPlatform" ? var.bypass_platform_safety_checks_on_user_schedule : null
+  hotpatching_enabled                                    = var.hotpatching_enabled
+
   os_disk {
     name = "osdisk-${each.value.vm_name}"
     # Ephemeral OS requires caching=ReadOnly (Azure constraint)

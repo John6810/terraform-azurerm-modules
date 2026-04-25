@@ -158,6 +158,52 @@ variable "enable_trusted_launch" {
   default     = true
 }
 
+variable "license_type" {
+  type        = string
+  description = <<-EOT
+  Azure Hybrid Benefit license type. For AVD multi-session (Windows Client),
+  set "Windows_Client" to consume the AHB / M365 entitlement and avoid
+  paying the full Windows VM compute price. For Windows Server SKUs, use
+  "Windows_Server" or "None".
+  Allowed: "Windows_Client", "Windows_Server", "None".
+  EOT
+  default     = "Windows_Client"
+
+  validation {
+    condition     = contains(["Windows_Client", "Windows_Server", "None"], var.license_type)
+    error_message = "license_type must be 'Windows_Client', 'Windows_Server', or 'None'."
+  }
+}
+
+variable "patch_mode" {
+  type        = string
+  description = <<-EOT
+  Patch orchestration mode. AutomaticByPlatform aligns with Azure Update
+  Manager and is the modern Microsoft recommendation for AVD; pair with
+  bypass_platform_safety_checks_on_user_schedule = true and a maintenance
+  configuration if you orchestrate patching from outside the VM.
+  Allowed: "Manual", "AutomaticByOS", "AutomaticByPlatform".
+  EOT
+  default     = "AutomaticByPlatform"
+
+  validation {
+    condition     = contains(["Manual", "AutomaticByOS", "AutomaticByPlatform"], var.patch_mode)
+    error_message = "patch_mode must be 'Manual', 'AutomaticByOS', or 'AutomaticByPlatform'."
+  }
+}
+
+variable "bypass_platform_safety_checks_on_user_schedule" {
+  type        = bool
+  description = "When patch_mode = AutomaticByPlatform, set true to defer to a user-defined maintenance configuration (Update Manager) instead of platform-managed safety checks."
+  default     = true
+}
+
+variable "hotpatching_enabled" {
+  type        = bool
+  description = "Enable hotpatching where supported (Win11 24H2+ multi-session, Server 2022 Datacenter Azure Edition). Reduces reboots required for security patches."
+  default     = false
+}
+
 ###############################################################
 # AVD AGENT / SESSION HOST REGISTRATION
 ###############################################################
