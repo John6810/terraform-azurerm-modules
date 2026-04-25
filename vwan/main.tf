@@ -13,3 +13,16 @@ resource "azurerm_virtual_wan" "vwan" {
 
   tags = var.tags
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# RESOURCE: Management Lock
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "azurerm_management_lock" "this" {
+  count = var.lock != null ? 1 : 0
+
+  lock_level = var.lock.kind
+  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
+  scope      = azurerm_virtual_wan.vwan.id
+  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+}

@@ -116,3 +116,15 @@ resource "azurerm_role_assignment" "grafana_viewer" {
   principal_type       = "Group"
   role_definition_name = "Grafana Viewer"
 }
+
+###############################################################
+# RESOURCE: Management Lock
+###############################################################
+resource "azurerm_management_lock" "this" {
+  count = var.lock != null ? 1 : 0
+
+  lock_level = var.lock.kind
+  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
+  scope      = azurerm_dashboard_grafana.this.id
+  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+}

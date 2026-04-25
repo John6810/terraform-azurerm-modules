@@ -137,6 +137,31 @@ variable "grafana_viewer_group_object_ids" {
 ###############################################################
 # TAGS
 ###############################################################
+###############################################################
+# LOCK
+###############################################################
+variable "lock" {
+  type = object({
+    kind = string
+    name = optional(string)
+  })
+  default     = null
+  description = <<-EOT
+  Controls the Resource Lock configuration for this resource.
+
+  - `kind` - (Required) "CanNotDelete" or "ReadOnly".
+  - `name` - (Optional) Lock name. Generated from kind if not specified.
+  EOT
+
+  validation {
+    condition     = var.lock != null ? contains(["CanNotDelete", "ReadOnly"], var.lock.kind) : true
+    error_message = "Lock kind must be either \"CanNotDelete\" or \"ReadOnly\"."
+  }
+}
+
+###############################################################
+# TAGS
+###############################################################
 variable "tags" {
   type        = map(string)
   description = "Tags to apply to resources"
