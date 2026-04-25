@@ -44,11 +44,30 @@ resource "azurerm_virtual_desktop_host_pool" "this" {
 }
 
 ###############################################################
-# RESOURCE: Registration Info (rotated by Terraform — re-apply to refresh)
+# RESOURCE: Registration Info — auto-rotating token
+#
+# time_rotating advances whenever `terraform apply` runs after the
+# rotation_hours window has elapsed. The dependent registration_info
+# resource is then replace-triggered, which generates a fresh token
+# with a new expiration_date.
+#
+# Operationally: schedule a CI apply at least once per rotation
+# period (e.g. nightly when registration_expiration_hours > 24) so
+# new session hosts always find a valid token to register against.
 ###############################################################
+resource "time_rotating" "registration_token" {
+  count = var.create_registration_info ? 1 : 0
+
+  rotation_hours = var.registration_expiration_hours
+}
+
 resource "azurerm_virtual_desktop_host_pool_registration_info" "this" {
   count = var.create_registration_info ? 1 : 0
 
   hostpool_id     = azurerm_virtual_desktop_host_pool.this.id
-  expiration_date = timeadd(time_static.time.id, "${var.registration_expiration_hours}h")
+  expiration_date = time_rotating.registration_token[0].rotation_rfc3339
+
+  lifecycle {
+    replace_triggered_by = [time_rotating.registration_token[0]]
+  }
 }
