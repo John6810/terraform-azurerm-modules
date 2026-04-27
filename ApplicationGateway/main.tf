@@ -36,12 +36,12 @@ resource "azurerm_web_application_firewall_policy" "this" {
   managed_rules {
     managed_rule_set {
       type    = "Microsoft_DefaultRuleSet"
-      version = "2.1"
+      version = var.default_rule_set_version
     }
 
     managed_rule_set {
       type    = "Microsoft_BotManagerRuleSet"
-      version = "1.0"
+      version = var.bot_manager_rule_set_version
     }
   }
 
@@ -79,11 +79,13 @@ resource "azurerm_public_ip" "this" {
 # RESOURCE: Application Gateway v2
 ###############################################################
 resource "azurerm_application_gateway" "this" {
-  name                = local.name
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  firewall_policy_id  = azurerm_web_application_firewall_policy.this.id
-  zones               = var.availability_zones
+  name                              = local.name
+  location                          = var.location
+  resource_group_name               = var.resource_group_name
+  firewall_policy_id                = azurerm_web_application_firewall_policy.this.id
+  force_firewall_policy_association = var.force_firewall_policy_association
+  zones                             = var.availability_zones
+  enable_http2                      = var.enable_http2
 
   sku {
     name = "WAF_v2"
@@ -93,6 +95,24 @@ resource "azurerm_application_gateway" "this" {
   autoscale_configuration {
     min_capacity = var.min_capacity
     max_capacity = var.max_capacity
+  }
+
+  # SSL policy — TLS 1.2+ minimum, strong cipher suites by default.
+  # Predefined "AppGwSslPolicy20220101S" is Microsoft's strict baseline.
+  ssl_policy {
+    policy_type          = var.ssl_policy_type
+    policy_name          = var.ssl_policy_type == "Predefined" ? var.ssl_policy_name : null
+    min_protocol_version = var.ssl_policy_type == "CustomV2" ? var.ssl_policy_min_protocol_version : null
+    cipher_suites        = var.ssl_policy_type == "CustomV2" ? var.ssl_policy_cipher_suites : null
+  }
+
+  # UAMI for Key Vault SSL cert access (used by AGIC and KV-managed certs).
+  dynamic "identity" {
+    for_each = var.identity_type != null ? [1] : []
+    content {
+      type         = var.identity_type
+      identity_ids = var.identity_ids
+    }
   }
 
   gateway_ip_configuration {

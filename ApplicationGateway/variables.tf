@@ -112,6 +112,83 @@ variable "waf_mode" {
   }
 }
 
+variable "default_rule_set_version" {
+  type        = string
+  description = "Microsoft Default Rule Set version. Current GA = 2.1 (April 2026)."
+  default     = "2.1"
+}
+
+variable "bot_manager_rule_set_version" {
+  type        = string
+  description = "Microsoft Bot Manager Rule Set version. Current GA = 1.1 (adds advanced bot detection over 1.0)."
+  default     = "1.1"
+}
+
+###############################################################
+# TLS / HTTP HARDENING
+###############################################################
+variable "ssl_policy_type" {
+  type        = string
+  description = "SSL policy mode: Predefined (use Azure-curated lists) or CustomV2 (set min_protocol_version + cipher_suites). 'Custom' is deprecated."
+  default     = "Predefined"
+
+  validation {
+    condition     = contains(["Predefined", "Custom", "CustomV2"], var.ssl_policy_type)
+    error_message = "ssl_policy_type must be 'Predefined', 'Custom', or 'CustomV2'."
+  }
+}
+
+variable "ssl_policy_name" {
+  type        = string
+  description = "Predefined SSL policy name. Default 'AppGwSslPolicy20220101S' = TLS 1.2 only + strong ciphers (Microsoft 'strict' baseline). Set to null when ssl_policy_type = CustomV2."
+  default     = "AppGwSslPolicy20220101S"
+}
+
+variable "ssl_policy_min_protocol_version" {
+  type        = string
+  description = "Minimum TLS version when ssl_policy_type = CustomV2. Allowed: TLSv1_2, TLSv1_3."
+  default     = null
+}
+
+variable "ssl_policy_cipher_suites" {
+  type        = list(string)
+  description = "Cipher suite list when ssl_policy_type = CustomV2. See azurerm docs for the allowed suite names."
+  default     = null
+}
+
+variable "enable_http2" {
+  type        = bool
+  description = "Enable HTTP/2 on frontend listeners. Recommended (modern HTTP/2 multiplexing, lower latency)."
+  default     = true
+}
+
+variable "force_firewall_policy_association" {
+  type        = bool
+  description = "Force the attached WAF policy to apply to ALL listeners on this AppGW, even if a different policy is bound at listener level. Recommended true for security baseline (prevents listener-level escape hatches)."
+  default     = true
+}
+
+###############################################################
+# IDENTITY (for Key Vault SSL cert access)
+###############################################################
+variable "identity_type" {
+  type        = string
+  description = "Identity type: 'UserAssigned' (only one supported by AppGW). Set to null when no KV-managed certs are used. AGIC also typically uses a UAMI to fetch certs from Key Vault."
+  default     = null
+
+  validation {
+    condition     = var.identity_type == null || var.identity_type == "UserAssigned"
+    error_message = "AppGW only supports 'UserAssigned' identity (no SystemAssigned)."
+  }
+}
+
+variable "identity_ids" {
+  type        = list(string)
+  description = "List of UAMI resource IDs to attach. Required when identity_type = UserAssigned. The UAMI needs Key Vault Certificate User on the KV holding SSL certs."
+  default     = []
+  nullable    = false
+}
+
 variable "min_capacity" {
   type        = number
   description = "Minimum capacity (autoscale)"
