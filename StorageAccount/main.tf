@@ -15,6 +15,12 @@ locals {
   computed_name                      = "st${var.subscription_acronym}${var.environment}${var.region_code}${var.workload}"
   name                               = var.name != null ? var.name : local.computed_name
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
+
+  # Merge caller-supplied identity_ids with the CMK UAMI (deduplicated).
+  # The customer_managed_key block requires its UAMI to also be referenced
+  # in the identity block — this is enforced automatically here.
+  cmk_identity_ids = var.customer_managed_key != null ? [var.customer_managed_key.user_assigned_identity_id] : []
+  all_identity_ids = distinct(concat(var.identity_ids, local.cmk_identity_ids))
 }
 
 ###############################################################
@@ -29,16 +35,29 @@ resource "azurerm_storage_account" "this" {
   account_replication_type = var.account_replication_type
   account_kind             = var.account_kind
 
-  min_tls_version                 = "TLS1_2"
-  https_traffic_only_enabled      = true
-  public_network_access_enabled   = var.public_network_access_enabled
-  shared_access_key_enabled       = var.shared_access_key_enabled
-  allow_nested_items_to_be_public = false
+  min_tls_version                   = "TLS1_2"
+  https_traffic_only_enabled        = true
+  public_network_access_enabled     = var.public_network_access_enabled
+  shared_access_key_enabled         = var.shared_access_key_enabled
+  default_to_oauth_authentication   = var.default_to_oauth_authentication
+  cross_tenant_replication_enabled  = var.cross_tenant_replication_enabled
+  infrastructure_encryption_enabled = var.infrastructure_encryption_enabled
+  local_user_enabled                = var.local_user_enabled
+  allow_nested_items_to_be_public   = false
 
   dynamic "identity" {
     for_each = var.identity_type != null ? [1] : []
     content {
-      type = var.identity_type
+      type         = var.identity_type
+      identity_ids = length(local.all_identity_ids) > 0 ? local.all_identity_ids : null
+    }
+  }
+
+  dynamic "customer_managed_key" {
+    for_each = var.customer_managed_key != null ? [var.customer_managed_key] : []
+    content {
+      key_vault_key_id          = customer_managed_key.value.key_vault_key_id
+      user_assigned_identity_id = customer_managed_key.value.user_assigned_identity_id
     }
   }
 
@@ -46,6 +65,10 @@ resource "azurerm_storage_account" "this" {
     # FileStorage (Premium Azure Files) doesn't support blob_properties
     for_each = var.account_kind != "FileStorage" && var.blob_delete_retention_days != null ? [1] : []
     content {
+      versioning_enabled       = var.blob_versioning_enabled
+      change_feed_enabled      = var.blob_change_feed_enabled
+      last_access_time_enabled = var.blob_last_access_time_enabled
+
       delete_retention_policy {
         days = var.blob_delete_retention_days
       }

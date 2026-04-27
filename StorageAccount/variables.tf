@@ -121,8 +121,56 @@ variable "public_network_access_enabled" {
 
 variable "shared_access_key_enabled" {
   type        = bool
-  description = "Enable shared access keys"
+  description = "Enable shared access keys (account keys / connection strings). Disable to force AAD-only auth — required by some compliance baselines (MCSB, F-STOR-2)."
   default     = false
+}
+
+variable "default_to_oauth_authentication" {
+  type        = bool
+  description = "When true, the portal/CLI default to AAD OAuth instead of access keys for data plane operations. Recommended when shared_access_key_enabled is true to nudge admins away from key auth."
+  default     = false
+}
+
+variable "cross_tenant_replication_enabled" {
+  type        = bool
+  description = "Allow object replication across Azure AD tenants. Default false (Azure v4 default) — keeps data inside the tenant."
+  default     = false
+}
+
+variable "infrastructure_encryption_enabled" {
+  type        = bool
+  description = "Enable infrastructure-level AES-256 encryption (double encryption). Adds a second encryption layer below the service-level encryption. Cannot be changed after creation."
+  default     = false
+}
+
+variable "local_user_enabled" {
+  type        = bool
+  description = "Enable local users for SFTP/NFS. Default true (Azure default) — set false to disable when SFTP/NFS is not used."
+  default     = true
+}
+
+variable "customer_managed_key" {
+  description = <<-EOT
+  Customer-Managed Key (CMK) configuration backed by Azure Key Vault. When set,
+  the storage account encrypts all data with this CMK instead of the
+  Microsoft-managed key.
+
+  - `key_vault_key_id`           - (Required) Versioned or versionless key URL
+                                    (e.g. https://kv-...vault.azure.net/keys/foo
+                                    or .../keys/foo/<version>).
+  - `user_assigned_identity_id`  - (Required) UAMI that has Key Vault Crypto
+                                    Service Encryption User on the KV.
+
+  Prerequisites:
+  - identity_type must include "UserAssigned" and reference the same UAMI.
+  - The UAMI needs Key Vault Crypto Service Encryption User on the KV.
+  - The KV must have purge protection enabled.
+  EOT
+  type = object({
+    key_vault_key_id          = string
+    user_assigned_identity_id = string
+  })
+  default = null
 }
 
 variable "identity_type" {
@@ -134,6 +182,13 @@ variable "identity_type" {
     condition     = var.identity_type == null || contains(["SystemAssigned", "UserAssigned", "SystemAssigned,UserAssigned"], var.identity_type)
     error_message = "identity_type must be 'SystemAssigned', 'UserAssigned', or 'SystemAssigned,UserAssigned'."
   }
+}
+
+variable "identity_ids" {
+  type        = list(string)
+  description = "List of UAMI resource IDs to attach when identity_type contains 'UserAssigned'. The CMK UAMI (var.customer_managed_key.user_assigned_identity_id) is auto-merged with these — no need to repeat it here."
+  default     = []
+  nullable    = false
 }
 
 variable "blob_delete_retention_days" {
@@ -156,6 +211,24 @@ variable "container_delete_retention_days" {
     condition     = var.container_delete_retention_days >= 1 && var.container_delete_retention_days <= 365
     error_message = "container_delete_retention_days must be between 1 and 365."
   }
+}
+
+variable "blob_versioning_enabled" {
+  type        = bool
+  description = "Enable blob versioning. Required for tfstate backends (F-STOR-3) and for point-in-time restore. Default false (Azure default) — opt-in."
+  default     = false
+}
+
+variable "blob_change_feed_enabled" {
+  type        = bool
+  description = "Enable the blob change feed (audit log of all blob changes). Pre-requisite for some replication and governance scenarios. Default false."
+  default     = false
+}
+
+variable "blob_last_access_time_enabled" {
+  type        = bool
+  description = "Track last-access time on blobs. Required for lifecycle management policies that move/delete based on access patterns. Adds ingestion cost — opt-in."
+  default     = false
 }
 
 variable "containers" {
