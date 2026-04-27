@@ -107,3 +107,25 @@ inputs = {
 | identity_id | Managed identity ID |
 | identity_principal_id | Managed identity principal ID |
 | identity_client_id | Managed identity client ID |
+
+## ⚠️ Zone Redundancy is immutable
+
+`zone_redundancy_enabled` cannot be changed after the Grafana instance is
+created — Azure rejects the update. Flipping the value requires a full
+**destroy + recreate**, which loses:
+
+- Custom dashboards (export them via the Grafana API beforehand)
+- Datasource links to LAW / AMW (must be re-linked)
+- Entra ID RBAC group assignments (recreated by this module, but plan/apply
+  ordering matters)
+- Plugins, contact points, alert rules
+
+**Decision matrix for this Landing Zone**:
+
+| Environment | ZR | Rationale |
+|---|---|---|
+| **nprd** | `false` | Cost-saving on a consultation-only tool; break-glass via Azure Monitor portal during a zone incident is acceptable. Tracked as F-FIN-4 (closed by-design) in `audit-live-nprd.md` and exempted from the `Audit-ZoneResiliency` policy via `landing-zone/platform/management/policy-exemptions/grafana-zr-waiver`. |
+| **prod** | `true` | Grafana is *most needed* during a zone incident (to visualize the affected resources). Set `zone_redundancy_enabled = true` at the **first apply** of the prod deployment — flipping later requires recreation. |
+
+The module default is `true` to make prod safe-by-default; nprd callers
+must explicitly opt into `false`.
