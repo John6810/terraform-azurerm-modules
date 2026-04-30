@@ -106,12 +106,27 @@ inputs = {
 | `vm_size` | `Standard_D4s_v5` | Min 4 vCPU recommended for Win11 multi-session |
 | `image` | Win11 24H2 AVD multi-session | Marketplace image |
 | `os_disk.ephemeral` | `true` | D4s_v5 has 150 GiB temp — fits 128 GiB ephemeral OS |
+| `accelerated_networking_enabled` | `true` | SR-IOV. Disable only for VM sizes that don't support it |
 | `availability_zones` | `["1","2","3"]` | Round-robin VM placement |
 | `enable_trusted_launch` | `true` | vTPM + Secure Boot |
 | `license_type` | `"Windows_Client"` | AHB / M365 entitlement (avoids paying full Windows compute price) |
 | `patch_mode` | `"AutomaticByPlatform"` | Pairs with Azure Update Manager |
 | `bypass_platform_safety_checks_on_user_schedule` | `true` | Honor a maintenance configuration |
 | `hotpatching_enabled` | `false` | Win11 24H2+ multi-session, opt-in |
+
+## ⚠️ Ephemeral OS × VM size
+
+`os_disk.ephemeral = true` (default) requires the chosen `vm_size` to expose
+a temp/resource disk large enough for the OS image (128 GiB by default). The
+2-vCPU "s" variants of v3/v4/v5 only have ~75 GiB of temp storage, which
+**cannot** host the ephemeral OS — `terraform plan` will block via a
+precondition listing the affected sizes.
+
+| Choose | When |
+| --- | --- |
+| `Standard_D4s_v5` (or larger 's') | Default for AVD multi-session |
+| `Standard_D2ds_v5` / any 'ds' variant | Need 2 vCPUs but want ephemeral OS |
+| `os_disk.ephemeral = false` | Need a 2-vCPU 's' variant; pay for managed OS disk |
 
 ## Outputs
 

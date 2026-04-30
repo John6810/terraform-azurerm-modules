@@ -129,6 +129,12 @@ variable "os_disk" {
   default = {}
 }
 
+variable "accelerated_networking_enabled" {
+  type        = bool
+  description = "Enable Accelerated Networking on the session host NICs. Most ≥ D4s_v5 sizes support it; required for production AVD performance. Set to false only for VM sizes that do not support SR-IOV."
+  default     = true
+}
+
 variable "admin_username" {
   type        = string
   description = "Local admin username (for break-glass access)."

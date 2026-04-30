@@ -47,9 +47,10 @@ data "azurerm_key_vault_secret" "admin_password" {
 resource "azurerm_network_interface" "this" {
   for_each = local.vms
 
-  name                = each.value.nic_name
-  location            = var.location
-  resource_group_name = var.resource_group_name
+  name                           = each.value.nic_name
+  location                       = var.location
+  resource_group_name            = var.resource_group_name
+  accelerated_networking_enabled = var.accelerated_networking_enabled
 
   ip_configuration {
     name                          = "ipc-default"
@@ -124,6 +125,22 @@ resource "azurerm_windows_virtual_machine" "this" {
       admin_password, # Password rotated out-of-band via az vm reset command
       tags["CreatedOn"],
     ]
+
+    # Ephemeral OS requires the VM size to have a temp/resource disk large
+    # enough for the OS image. The 2-vCPU "s" variants (no 'd') of v3/v4/v5
+    # only have ~75 GiB temp, which cannot host a 128 GiB ephemeral OS disk.
+    # Use a 'ds' variant (D2ds_v5+) or ≥ 4-vCPU 's' variant (D4s_v5+).
+    precondition {
+      condition = !try(var.os_disk.ephemeral, true) || !contains(
+        [
+          "Standard_D2s_v3", "Standard_D2s_v4", "Standard_D2s_v5",
+          "Standard_D2as_v4", "Standard_D2as_v5",
+          "Standard_B2s", "Standard_B2ms",
+        ],
+        var.vm_size
+      )
+      error_message = "Ephemeral OS disk requires a vm_size with sufficient temp storage. The 2-vCPU 's' variants (Standard_D2s_v*, Standard_D2as_v*) have only ~75 GiB temp — use ≥ 4-vCPU (D4s_v5+) or a 'ds' variant (D2ds_v5+ has explicit data disk). Set os_disk.ephemeral = false to use a managed OS disk instead."
+    }
   }
 }
 
