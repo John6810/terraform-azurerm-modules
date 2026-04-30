@@ -91,8 +91,19 @@ variable "monitor_workspace_id" {
 
 variable "action_group_id" {
   type        = string
-  description = "ID of the Action Group for alert notifications"
+  description = "Single Action Group ID for alert notifications. Concatenated with action_group_ids; combined list is capped at 5 (Azure limit)."
   nullable    = false
+}
+
+variable "action_group_ids" {
+  type        = list(string)
+  description = "Additional Action Group IDs for alert notifications. Combined with action_group_id; final list capped at 5 (Azure limit)."
+  default     = []
+
+  validation {
+    condition     = length(var.action_group_ids) <= 5
+    error_message = "action_group_ids list cannot exceed 5 entries (Azure limit per alert rule)."
+  }
 }
 
 ###############################################################
@@ -111,8 +122,22 @@ variable "rule_groups" {
       annotations = optional(map(string), {})
     }))
   }))
-  description = "Map of Prometheus alert rule groups. Key = group name suffix. Max 20 rules per group (Azure limit)."
+  description = "Map of Prometheus alert rule groups. Key = group name suffix. Max 20 rules per group (Azure limit). severity must be 0..4."
   nullable    = false
+
+  validation {
+    condition     = alltrue([for g in var.rule_groups : length(g.alerts) <= 20])
+    error_message = "Each alert rule group is limited to 20 alerts (Azure hard limit on azurerm_monitor_alert_prometheus_rule_group). Split into multiple groups if you have more."
+  }
+
+  validation {
+    condition = alltrue([
+      for g in var.rule_groups : alltrue([
+        for a in g.alerts : a.severity >= 0 && a.severity <= 4
+      ])
+    ])
+    error_message = "Each alert severity must be in [0..4] (0=critical, 4=verbose)."
+  }
 }
 
 ###############################################################

@@ -8,10 +8,17 @@
 resource "time_static" "time" {}
 
 ###############################################################
-# Naming Convention
+# Naming Convention + Action group merge
 ###############################################################
 locals {
   prefix = "${var.subscription_acronym}-${var.environment}-${var.region_code}"
+
+  # action_group_id (mandatory single) + action_group_ids (optional extras)
+  # → distinct list capped at 5 (Azure hard limit per alert rule).
+  action_group_ids = distinct(concat(
+    [var.action_group_id],
+    var.action_group_ids,
+  ))
 }
 
 ###############################################################
@@ -39,8 +46,11 @@ resource "azurerm_monitor_alert_prometheus_rule_group" "this" {
       labels      = rule.value.labels
       annotations = rule.value.annotations
 
-      action {
-        action_group_id = var.action_group_id
+      dynamic "action" {
+        for_each = local.action_group_ids
+        content {
+          action_group_id = action.value
+        }
       }
 
       alert_resolution {
@@ -56,4 +66,11 @@ resource "azurerm_monitor_alert_prometheus_rule_group" "this" {
       CreatedOn = formatdate("DD-MM-YYYY hh:mm", timeadd(time_static.time.id, "1h"))
     }
   )
+
+  lifecycle {
+    precondition {
+      condition     = length(local.action_group_ids) <= 5
+      error_message = "Combined action_group_id + action_group_ids exceeds 5 (Azure hard limit per Prometheus alert rule)."
+    }
+  }
 }
