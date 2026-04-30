@@ -63,64 +63,54 @@ resource "azurerm_management_lock" "this" {
 
 ###############################################################
 # RESOURCE: Inline Subnets (optional)
+#
+# Uses azapi_resource so the subnet is created WITH NSG / RT / NAT GW
+# / delegations / service endpoints in a single API call. The classic
+# 2-step pattern (azurerm_subnet THEN azurerm_subnet_*_association) is
+# blocked by the Azure Policy "Subnets must have a Network Security
+# Group" (Deny effect) — between the create and the NSG association
+# the subnet exists without NSG, which the policy rejects.
 ###############################################################
-resource "azurerm_subnet" "this" {
+resource "azapi_resource" "subnet" {
   for_each = { for s in var.subnets : s.name => s }
 
-  name                              = each.value.name
-  resource_group_name               = var.resource_group_name
-  virtual_network_name              = azurerm_virtual_network.this.name
-  address_prefixes                  = each.value.address_prefixes
-  service_endpoints                 = each.value.service_endpoints
-  default_outbound_access_enabled   = each.value.default_outbound_access_enabled
-  private_endpoint_network_policies = each.value.private_endpoint_network_policies
+  type      = "Microsoft.Network/virtualNetworks/subnets@2025-03-01"
+  name      = each.value.name
+  parent_id = azurerm_virtual_network.this.id
 
-  dynamic "ip_address_pool" {
-    for_each = each.value.ip_address_pool != null ? [each.value.ip_address_pool] : []
-    content {
-      id                     = ip_address_pool.value.id
-      number_of_ip_addresses = ip_address_pool.value.number_of_ip_addresses
+  body = {
+    properties = {
+      addressPrefixes = each.value.address_prefixes
+      networkSecurityGroup = each.value.nsg_id != null ? {
+        id = each.value.nsg_id
+      } : null
+      routeTable = each.value.route_table_id != null ? {
+        id = each.value.route_table_id
+      } : null
+      natGateway = each.value.nat_gateway_id != null ? {
+        id = each.value.nat_gateway_id
+      } : null
+      serviceEndpoints = each.value.service_endpoints != null ? [
+        for svc in each.value.service_endpoints : { service = svc }
+      ] : []
+      privateEndpointNetworkPolicies = each.value.private_endpoint_network_policies
+      defaultOutboundAccess          = each.value.default_outbound_access_enabled
+      ipamPoolPrefixAllocations = each.value.ip_address_pool != null ? [
+        {
+          pool                = { id = each.value.ip_address_pool.id }
+          numberOfIpAddresses = tostring(each.value.ip_address_pool.number_of_ip_addresses)
+        }
+      ] : []
+      # `actions` are auto-populated by Azure from the service name; the
+      # azapi schema only needs serviceName.
+      delegations = [
+        for d in each.value.delegations : {
+          name = d.name
+          properties = {
+            serviceName = d.service_delegation.name
+          }
+        }
+      ]
     }
   }
-
-  dynamic "delegation" {
-    for_each = each.value.delegations
-    content {
-      name = delegation.value.name
-      service_delegation {
-        name    = delegation.value.service_delegation.name
-        actions = delegation.value.service_delegation.actions
-      }
-    }
-  }
-}
-
-resource "azurerm_subnet_network_security_group_association" "this" {
-  for_each = {
-    for s in var.subnets : s.name => s
-    if s.nsg_id != null
-  }
-
-  subnet_id                 = azurerm_subnet.this[each.key].id
-  network_security_group_id = each.value.nsg_id
-}
-
-resource "azurerm_subnet_route_table_association" "this" {
-  for_each = {
-    for s in var.subnets : s.name => s
-    if s.route_table_id != null
-  }
-
-  subnet_id      = azurerm_subnet.this[each.key].id
-  route_table_id = each.value.route_table_id
-}
-
-resource "azurerm_subnet_nat_gateway_association" "this" {
-  for_each = {
-    for s in var.subnets : s.name => s
-    if s.nat_gateway_id != null
-  }
-
-  subnet_id      = azurerm_subnet.this[each.key].id
-  nat_gateway_id = each.value.nat_gateway_id
 }

@@ -2,6 +2,8 @@
 
 Creates an Azure Virtual Network with configurable address spaces, DNS servers, optional DDoS protection, management lock, and optional inline subnets with NSG/RT/NAT associations.
 
+> **Policy compliance note** — Inline subnets are created via `azapi_resource` so the subnet, NSG, route table, NAT Gateway, service endpoints and delegations land in **one** atomic Azure API call. The classic 2-step pattern (`azurerm_subnet` then `azurerm_subnet_*_association`) is rejected by the Azure Policy *"Subnets must have a Network Security Group"* (Deny) because the subnet briefly exists without an NSG. This module is policy-compliant by construction. The schema is unchanged — `delegations[].service_delegation.actions` is accepted but no longer needed (Azure auto-populates actions from the service name).
+
 ## Usage
 
 ### Standalone

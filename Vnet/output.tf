@@ -37,10 +37,10 @@ output "resource" {
 ###############################################################
 output "subnet_ids" {
   description = "Map of subnet name => subnet ID"
-  value       = { for k, s in azurerm_subnet.this : k => s.id }
+  value       = { for k, s in azapi_resource.subnet : k => s.id }
 }
 
 output "subnet_names" {
   description = "Map of subnet name => subnet name"
-  value       = { for k, s in azurerm_subnet.this : k => s.name }
+  value       = { for k, s in azapi_resource.subnet : k => s.name }
 }
