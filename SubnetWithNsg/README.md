@@ -84,8 +84,12 @@ inputs = {
 | address_prefix | `string` | Yes | CIDR block (e.g. 10.238.1.0/24) |
 | nsg_id | `string` | No | NSG resource ID to associate |
 | route_table_id | `string` | No | Route Table resource ID to associate |
-| default_outbound_access_enabled | `bool` | No | Enable default outbound access (default: false) |
-| delegation | `object` | No | Service delegation (name + service_name) |
+| nat_gateway_id | `string` | No | NAT Gateway resource ID. Forbidden on AzureFirewallSubnet, GatewaySubnet, AzureBastionSubnet |
+| service_endpoints | `list(string)` | No | Service endpoints (e.g. `["Microsoft.Storage", "Microsoft.KeyVault"]`). Default: `[]` |
+| private_endpoint_network_policies | `string` | No | `Enabled`, `Disabled`, `NetworkSecurityGroupEnabled`, `RouteTableEnabled`. Default: `Disabled` (recommended for PE-hosting subnets) |
+| default_outbound_access_enabled | `bool` | No | Enable default outbound access. Default: `false` (best practice — outbound through NAT/firewall instead) |
+| delegation | `object` | No | **DEPRECATED** — use `delegations`. Single service delegation. Merged with `delegations` if both set |
+| delegations | `list(object)` | No | List of service delegations. Most subnets need 0 or 1 |
 
 ## Outputs
 

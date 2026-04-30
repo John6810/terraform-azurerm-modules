@@ -8,8 +8,21 @@
 # associate NSG).
 ###############################################################
 
+locals {
+  # Merge legacy single `delegation` (deprecated) with new `delegations` list.
+  # Each subnet ends up with a single concatenated, deduped delegation list.
+  effective_subnets = {
+    for s in var.subnets : s.name => merge(s, {
+      effective_delegations = concat(
+        s.delegation != null ? [s.delegation] : [],
+        s.delegations,
+      )
+    })
+  }
+}
+
 resource "azapi_resource" "subnet" {
-  for_each = { for s in var.subnets : s.name => s }
+  for_each = local.effective_subnets
 
   type      = "Microsoft.Network/virtualNetworks/subnets@2025-03-01"
   name      = each.value.name
@@ -24,15 +37,22 @@ resource "azapi_resource" "subnet" {
       routeTable = each.value.route_table_id != null ? {
         id = each.value.route_table_id
       } : null
-      defaultOutboundAccess = each.value.default_outbound_access_enabled
-      delegations = each.value.delegation != null ? [
-        {
-          name = each.value.delegation.name
+      natGateway = each.value.nat_gateway_id != null ? {
+        id = each.value.nat_gateway_id
+      } : null
+      serviceEndpoints = [
+        for svc in each.value.service_endpoints : { service = svc }
+      ]
+      privateEndpointNetworkPolicies = each.value.private_endpoint_network_policies
+      defaultOutboundAccess          = each.value.default_outbound_access_enabled
+      delegations = [
+        for d in each.value.effective_delegations : {
+          name = d.name
           properties = {
-            serviceName = each.value.delegation.service_name
+            serviceName = d.service_name
           }
         }
-      ] : []
+      ]
     }
   }
 }
