@@ -12,7 +12,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Parse tag
         id: parse
@@ -39,7 +39,7 @@ jobs:
           terraform validate
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: ${{ steps.parse.outputs.tag }}
           name: "${{ steps.parse.outputs.module }} ${{ steps.parse.outputs.version }}"
@@ -63,7 +63,7 @@ jobs:
     # Uncomment when ready to publish to Terraform Registry
     if: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Parse tag
         id: parse
