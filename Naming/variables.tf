@@ -38,12 +38,12 @@ variable "suffix" {
 
 variable "environment" {
   type        = string
-  description = "Environment name (dev, test, nprd, prod, dr, sandbox, lab)"
+  description = "Environment short name (e.g. prod, nprd, dev, test, dr, lab). 2-4 lowercase letters — same shape used by every other module in this repo."
   default     = null
 
   validation {
-    condition     = var.environment == null || contains(["dev", "test", "nprd", "prod", "dr", "sandbox", "lab"], var.environment)
-    error_message = "Environment must be one of: dev, test, nprd, prod, dr, sandbox, lab."
+    condition     = var.environment == null || can(regex("^[a-z]{2,4}$", var.environment))
+    error_message = "environment must be 2 to 4 lowercase letters (e.g. prod, nprd, dev, test, dr, lab)."
   }
 }
 
