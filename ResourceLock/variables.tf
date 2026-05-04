@@ -26,9 +26,10 @@ variable "locks" {
   validation {
     condition = alltrue([
       for l in var.locks :
-      can(regex("^/subscriptions/[^/]+/resourceGroups/", l.scope))
+      can(regex("^/subscriptions/[^/]+($|/.+)$", l.scope)) ||
+      can(regex("^/providers/Microsoft\\.Management/managementGroups/[^/]+$", l.scope))
     ])
-    error_message = "Each lock scope must be a valid Azure resource ID (Resource Group or child resource)."
+    error_message = "Each lock scope must be a valid Azure ID — subscription (/subscriptions/<guid>), resource group (/subscriptions/<guid>/resourceGroups/<name>), child resource (/subscriptions/<guid>/resourceGroups/<name>/providers/...), or management group (/providers/Microsoft.Management/managementGroups/<name>)."
   }
 
   validation {
