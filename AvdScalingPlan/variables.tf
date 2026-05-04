@@ -126,6 +126,57 @@ variable "schedules" {
     off_peak_load_balancing_algorithm    = string
   }))
   nullable = false
+
+  validation {
+    condition = alltrue([
+      for s in var.schedules : alltrue([
+        for d in s.days_of_week :
+        contains(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], d)
+      ])
+    ])
+    error_message = "days_of_week entries must be PascalCase (Monday, Tuesday, … Sunday). Azure rejects lowercase or abbreviated forms."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.schedules :
+      can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", s.ramp_up_start_time)) &&
+      can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", s.peak_start_time)) &&
+      can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", s.ramp_down_start_time)) &&
+      can(regex("^([01][0-9]|2[0-3]):[0-5][0-9]$", s.off_peak_start_time))
+    ])
+    error_message = "ramp_up_start_time, peak_start_time, ramp_down_start_time, off_peak_start_time must be HH:MM (00:00-23:59)."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.schedules :
+      s.ramp_up_minimum_hosts_percent >= 0 && s.ramp_up_minimum_hosts_percent <= 100 &&
+      s.ramp_up_capacity_threshold_percent >= 1 && s.ramp_up_capacity_threshold_percent <= 100 &&
+      s.ramp_down_minimum_hosts_percent >= 0 && s.ramp_down_minimum_hosts_percent <= 100 &&
+      s.ramp_down_capacity_threshold_percent >= 1 && s.ramp_down_capacity_threshold_percent <= 100
+    ])
+    error_message = "Percent fields out of range — minimum_hosts_percent must be 0-100; capacity_threshold_percent must be 1-100."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.schedules :
+      contains(["BreadthFirst", "DepthFirst"], s.ramp_up_load_balancing_algorithm) &&
+      contains(["BreadthFirst", "DepthFirst"], s.peak_load_balancing_algorithm) &&
+      contains(["BreadthFirst", "DepthFirst"], s.ramp_down_load_balancing_algorithm) &&
+      contains(["BreadthFirst", "DepthFirst"], s.off_peak_load_balancing_algorithm)
+    ])
+    error_message = "load_balancing_algorithm fields must be either BreadthFirst or DepthFirst (PascalCase)."
+  }
+
+  validation {
+    condition = alltrue([
+      for s in var.schedules :
+      contains(["ZeroActiveSessions", "ZeroSessions"], s.ramp_down_stop_hosts_when)
+    ])
+    error_message = "ramp_down_stop_hosts_when must be either ZeroActiveSessions or ZeroSessions (PascalCase)."
+  }
 }
 
 ###############################################################
