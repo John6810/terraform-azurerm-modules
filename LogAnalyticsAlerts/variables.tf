@@ -148,6 +148,21 @@ variable "alerts" {
     custom_properties       = optional(map(string), {})
   }))
   nullable = false
+
+  validation {
+    condition = alltrue([
+      for a in var.alerts : a.severity >= 0 && a.severity <= 4
+    ])
+    error_message = "Each alert severity must be in [0..4] (0=Critical, 1=Error, 2=Warning, 3=Informational, 4=Verbose)."
+  }
+
+  validation {
+    condition = alltrue([
+      for a in var.alerts :
+      a.failing_periods.minimum_failing_periods_to_trigger_alert <= a.failing_periods.number_of_evaluation_periods
+    ])
+    error_message = "Each alert's failing_periods.minimum_failing_periods_to_trigger_alert must be ≤ number_of_evaluation_periods (Azure rejects min > total at apply time)."
+  }
 }
 
 variable "tags" {
