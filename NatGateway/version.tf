@@ -7,7 +7,7 @@ terraform {
       version = "~> 4.0"
     }
     azapi = {
-      source  = "azure/azapi"
+      source  = "Azure/azapi"
       version = "~> 2.4"
     }
     time = {
