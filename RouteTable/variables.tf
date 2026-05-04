@@ -128,6 +128,15 @@ variable "routes" {
     condition     = length([for r in var.routes : r.name]) == length(distinct([for r in var.routes : r.name]))
     error_message = "Each route name must be unique within the route table."
   }
+
+  validation {
+    condition = alltrue([
+      for r in var.routes :
+      can(regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$", r.address_prefix)) ||
+      can(regex("^[A-Z][A-Za-z0-9]+(\\.[A-Z][A-Za-z0-9]+)*$", r.address_prefix))
+    ])
+    error_message = "Each route address_prefix must be either an IPv4 CIDR (e.g. 10.0.0.0/24) or an Azure service tag (e.g. Internet, VirtualNetwork, Storage.GermanyWestCentral)."
+  }
 }
 
 variable "lock" {
