@@ -127,6 +127,14 @@ variable "nsgs" {
     ]))
     error_message = "Security rule priority must be between 100 and 4096."
   }
+
+  validation {
+    condition = alltrue([
+      for nsg_key, rules in var.nsgs :
+      length(rules) == length(distinct([for r in rules : r.priority]))
+    ])
+    error_message = "Each NSG's security rule priorities must be unique within that NSG. Azure rejects duplicates with an opaque error at apply time — caught here at plan time."
+  }
 }
 
 ###############################################################
