@@ -57,8 +57,11 @@ resource "azurerm_user_assigned_identity" "law" {
 # AVM ALZ Management Module
 ###############################################################
 module "alz_management" {
-  source  = "Azure/avm-ptn-alz-management/azurerm"
-  version = "~> 0.9.0"
+  source = "Azure/avm-ptn-alz-management/azurerm"
+  # Exact pin (mirror of AlzArchitecture's pinning style). Bump
+  # deliberately when the upstream AVM module ships a new minor —
+  # ALZ libraries can introduce breaking changes within 0.x.
+  version = "0.9.0"
 
   location                        = var.location
   resource_group_name             = local.resource_group_name
