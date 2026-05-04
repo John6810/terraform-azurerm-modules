@@ -35,6 +35,10 @@ locals {
 
 The `name` variable allows users to override the computed name.
 
+> **Why is this pattern duplicated in every module instead of centralized in a shared `Naming` module?**
+>
+> A historical `Naming` module wrapped `Azure/naming/azurerm` + custom Palo types but was never adopted by any caller (deleted 2026-05-04, see [REVIEW/SPRINT-7-AUDIT.md](REVIEW/SPRINT-7-AUDIT.md)). The repo now relies on convention + per-module validators (`subscription_acronym` regex, `environment` regex, etc.) duplicated 44 ×. This is **conscious tech debt**, accepted because the convention is simple, stable, and the validators catch deviating inputs at plan time. A future Sprint may reintroduce a centralized naming module if a new naming requirement emerges (extra segment, env outside `^[a-z]{2,4}$`, etc.) — see the audit doc for the trigger conditions and migration plan.
+
 ## Code Standards
 
 - **Terraform version:** >= 1.5.0

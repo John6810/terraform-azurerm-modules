@@ -8,6 +8,41 @@
 
 ---
 
+## Sprint 7 progress — 2026-05-04
+
+| Item | Décision | Commit |
+| --- | --- | --- |
+| **P0 #1 Composition strategy** | ✅ Décidé : **Option (c)** — accept duplication + CI lint à venir. L'audit du drift réel (KeyVault canonical vs KeyVaultStack inline) a montré un écart de seulement 4 lignes intentionnelles. Refactor `git::` impose state migrations sur 100 % des callers (KeyVaultStack → `module.kv.azurerm_key_vault.this`) pour un gain marginal. | (décision documentée ici) |
+| **P0 #4 Naming dead module** | ✅ **Killed** — 0 caller vérifié dans LZ. Voir note "Naming convention reintroduction" ci-dessous pour l'opportunité future. | `chore/sprint7-kill-naming-and-vpn` |
+| **P2 vpn/ leftover dir** | ✅ **Removed** — directory disque vestigial post-Sprint 2. | idem |
+| **P2 ResourceLock à kill** | ❌ **Annulé** : 2 callers actifs (`locks-api`, `locks-avd`) utilisent le pattern map-based bulk-lock — use case unique vs `var.lock` inline. L'audit s'était trompé. | — |
+
+### Naming convention — opportunité de réintroduction
+
+La suppression du module `Naming` n'est **pas** une renonciation à la centralisation du naming. Le statu quo actuel :
+
+- **Pattern dupliqué 44 ×** dans chaque module : `locals { computed_name = "{prefix}-${var.subscription_acronym}-${var.environment}-${var.region_code}-${var.workload}" }`
+- **Validators dupliqués 44 ×** sur les inputs (regex `^[a-z]{2,5}$` pour acronym, `^[a-z]{2,4}$` pour env, etc.)
+- Convention documentée dans `CONTRIBUTING.md` ("Naming logic")
+
+C'est exactement la duplication flaggée en P1 #1 (role_assignments shape) et P1 #8 (validators) du présent audit — mais transposée au naming. Le module `Naming` qu'on vient de tuer **aurait pu** être la source de vérité unique, mais il n'avait pas été adopté (il enveloppait `Azure/naming/azurerm` + types Palo custom, jamais wired par le LZ).
+
+**Réintroduction future possible** (Sprint dédié, ~3-5 jours) :
+
+1. Recréer un module `Naming` minimaliste (locals + validators canoniques, pas de wrapper Azure/naming officiel)
+2. Migrer les 44 modules pour le consommer (`module "naming" { source = "../Naming" ... }` — mais cf. P0 #1 `git::` vs duplication, applicable ici aussi)
+3. State migration : les resources sont déjà nommées d'après le pattern, donc 0 destroy/recreate côté Azure — uniquement re-render des `local.name` côté Terraform
+
+**Conditions de déclenchement** suggérées :
+
+- Une nouvelle convention de naming est imposée (ex: ajout segment `pillar` ou changement de séparateur)
+- Une nouvelle env (ex: `dr` ou `sandbox`) ne match pas le regex `^[a-z]{2,4}$` actuel
+- Un audit interne identifie un module qui a dérivé du pattern (validation manuelle requise)
+
+Tant qu'aucune de ces conditions n'est rencontrée, **la duplication 44 × est acceptée comme dette consciente** — coût de maintenance minime tant que la convention reste stable, refactor possible en 1 sprint dédié quand le besoin émerge.
+
+---
+
 ## 🔴 P0 — Strategic issues (design-level)
 
 | # | Module(s) / Area | Issue | Why it matters | Effort / Impact |
