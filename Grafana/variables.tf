@@ -102,12 +102,25 @@ variable "identity_role_assignments" {
   A map of role assignments for the Grafana managed identity. The map key is
   deliberately arbitrary to avoid issues where map keys may be unknown at plan time.
 
-  - `role_definition_id_or_name` - (Required) Role definition ID or name.
-  - `scope`                      - (Required) Azure resource/MG scope.
+  Canonical shape B (scope-based, MI is the principal — see CONTRIBUTING.md
+  for the full convention).
+
+  - `role_definition_id_or_name`             - (Required) Role definition ID or name.
+  - `scope`                                  - (Required) Azure resource/MG scope.
+  - `condition`                              - (Optional) ABAC condition for the role assignment.
+  - `condition_version`                      - (Optional) Condition version. Valid values: "2.0".
+  - `description`                            - (Optional) Description of the role assignment.
+  - `skip_service_principal_aad_check`       - (Optional) Skip AAD check. Default false.
+  - `delegated_managed_identity_resource_id` - (Optional) Delegated managed identity for cross-tenant scenarios.
   EOT
   type = map(object({
-    role_definition_id_or_name = string
-    scope                      = string
+    role_definition_id_or_name             = string
+    scope                                  = string
+    condition                              = optional(string)
+    condition_version                      = optional(string)
+    description                            = optional(string)
+    skip_service_principal_aad_check       = optional(bool, false)
+    delegated_managed_identity_resource_id = optional(string)
   }))
   default  = {}
   nullable = false

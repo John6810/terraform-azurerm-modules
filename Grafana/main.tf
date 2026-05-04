@@ -50,11 +50,16 @@ resource "azurerm_user_assigned_identity" "this" {
 resource "azurerm_role_assignment" "identity" {
   for_each = var.identity_role_assignments
 
-  scope                = each.value.scope
-  principal_id         = azurerm_user_assigned_identity.this.principal_id
-  principal_type       = "ServicePrincipal"
-  role_definition_id   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
-  role_definition_name = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
+  scope                                  = each.value.scope
+  principal_id                           = azurerm_user_assigned_identity.this.principal_id
+  principal_type                         = "ServicePrincipal"
+  role_definition_id                     = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
+  role_definition_name                   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
+  condition                              = each.value.condition
+  condition_version                      = each.value.condition_version
+  description                            = each.value.description
+  skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
+  delegated_managed_identity_resource_id = each.value.delegated_managed_identity_resource_id
 }
 
 ###############################################################

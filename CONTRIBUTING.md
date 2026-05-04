@@ -48,6 +48,49 @@ The `name` variable allows users to override the computed name.
 - All variables must have `description` and explicit `type`
 - All outputs must have `description`
 
+### Role assignment shapes
+
+Two canonical shapes exist for `role_assignments` / `identity_role_assignments`. Pick the one matching the module's RBAC pattern:
+
+**Shape A — principal_id-based** (the module's primary resource is the *receiver* of the role; principal is external).
+
+Used by: `KeyVault`, `KeyVaultStack`, `ContainerRegistry`, `StorageAccount`, `ResourceGroup`, `ResourceGroupSet`.
+
+```hcl
+type = map(object({
+  role_definition_id_or_name             = string
+  principal_id                           = string
+  principal_type                         = optional(string)            # User | Group | ServicePrincipal
+  condition                              = optional(string)
+  condition_version                      = optional(string)
+  description                            = optional(string)
+  skip_service_principal_aad_check       = optional(bool, false)
+  delegated_managed_identity_resource_id = optional(string)
+}))
+```
+
+**Shape B — scope-based** (the module's primary resource is a *managed identity*; the MI is the principal, caller specifies target scopes).
+
+Used by: `ManagedIdentity`, `Grafana` (`identity_role_assignments`).
+
+```hcl
+type = map(object({
+  role_definition_id_or_name             = string
+  scope                                  = string
+  condition                              = optional(string)
+  condition_version                      = optional(string)
+  description                            = optional(string)
+  skip_service_principal_aad_check       = optional(bool, false)
+  delegated_managed_identity_resource_id = optional(string)
+}))
+# principal_id is hardcoded in main.tf to the MI's principal_id
+# principal_type is hardcoded to "ServicePrincipal" (MIs are SPNs)
+```
+
+Both shapes carry the same 5 optional fields; `principal_type` is only relevant in Shape A (Shape B's principal is by construction always a managed identity / SP). Do not invent a third shape — extend Shape A or B as needed.
+
+`RbacAssignments` is a special bulk-assignment module with its own `group_assignments` / `identity_assignments` split (resolves principals by display_name vs object_id) and is not subject to this convention.
+
 ## Commit Messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):

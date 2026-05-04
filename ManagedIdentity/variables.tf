@@ -118,7 +118,7 @@ variable "role_assignments" {
     condition_version                      = optional(string)
     delegated_managed_identity_resource_id = optional(string)
     description                            = optional(string)
-    skip_service_principal_aad_check       = optional(bool)
+    skip_service_principal_aad_check       = optional(bool, false)
   }))
   default  = {}
   nullable = false
