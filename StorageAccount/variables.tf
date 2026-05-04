@@ -320,6 +320,14 @@ variable "network_rules" {
     condition     = var.network_rules == null || contains(["Allow", "Deny"], try(var.network_rules.default_action, ""))
     error_message = "network_rules.default_action must be 'Allow' or 'Deny'."
   }
+
+  validation {
+    condition = var.network_rules == null || alltrue([
+      for b in coalesce(try(var.network_rules.bypass, null), []) :
+      contains(["AzureServices", "Logging", "Metrics", "None"], b)
+    ])
+    error_message = "network_rules.bypass entries must each be one of: AzureServices, Logging, Metrics, None."
+  }
 }
 
 ###############################################################

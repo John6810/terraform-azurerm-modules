@@ -61,4 +61,12 @@ variable "secrets" {
     ])
     error_message = "Each secret must have at most one of `expiration_date` or `expiration_days`, not both."
   }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.secrets :
+      can(regex("^[a-zA-Z][a-zA-Z0-9-]{0,126}$", v.name))
+    ])
+    error_message = "Each secret name must start with a letter, contain only alphanumerics and hyphens, and be at most 127 characters (Azure Key Vault constraints)."
+  }
 }
