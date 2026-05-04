@@ -39,6 +39,23 @@ The `name` variable allows users to override the computed name.
 >
 > A historical `Naming` module wrapped `Azure/naming/azurerm` + custom Palo types but was never adopted by any caller (deleted 2026-05-04, see [REVIEW/SPRINT-7-AUDIT.md](REVIEW/SPRINT-7-AUDIT.md)). The repo now relies on convention + per-module validators (`subscription_acronym` regex, `environment` regex, etc.) duplicated 44 ×. This is **conscious tech debt**, accepted because the convention is simple, stable, and the validators catch deviating inputs at plan time. A future Sprint may reintroduce a centralized naming module if a new naming requirement emerges (extra segment, env outside `^[a-z]{2,4}$`, etc.) — see the audit doc for the trigger conditions and migration plan.
 
+## Testing
+
+Modules may carry plan-time tests under `<Module>/tests/*.tftest.hcl`. CI runs `terraform test` against any present test file via `.github/workflows/ci-modules.yml`. No real Azure credentials are involved — tests use `mock_provider "azurerm"` and only assert plan-resolution / validator behavior.
+
+The minimum useful test surface for a new or refactored module:
+
+- A "smoke" test with the minimum valid inputs that asserts the computed name follows the convention
+- One `expect_failures` test per non-trivial validator (e.g. name length, enum values, cross-field constraints)
+
+See [`KeyVault/tests/basic.tftest.hcl`](KeyVault/tests/basic.tftest.hcl) for the canonical template. Copy and adapt; do not invent a different test pattern.
+
+## Drift lint (composition strategy)
+
+Several orchestrator modules (`KeyVaultStack`, `NetworkStack`, `ResourceGroupSet`, `PaloCluster`) re-implement resource blocks that exist in canonical primitives (`KeyVault`, `ResourceGroup`, `PrivateEndpoint`). This duplication is documented as **conscious tech debt** in [REVIEW/SPRINT-7-AUDIT.md](REVIEW/SPRINT-7-AUDIT.md) (Sprint 7 #1 — option (c) was selected: accept duplication + lint).
+
+`scripts/check-drift.sh` diffs the inline copies against their canonical counterparts and emits CI warnings on any divergence. Run via `.github/workflows/drift-lint.yml` on every PR that touches one of the relevant files. **When you update a canonical module, propagate the change to the orchestrator inline copies — or document the intentional divergence in a comment.**
+
 ## Code Standards
 
 - **Terraform version:** >= 1.5.0

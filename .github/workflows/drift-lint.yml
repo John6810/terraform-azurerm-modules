@@ -1,0 +1,34 @@
+name: Drift Lint
+
+# Realises the "accept duplication + lint" composition strategy decided
+# in REVIEW/SPRINT-7-AUDIT.md (Sprint 7 #1). Compares duplicated resource
+# blocks in orchestrator modules (KeyVaultStack, NetworkStack,
+# ResourceGroupSet, PaloCluster) against their canonical counterparts
+# (KeyVault, ResourceGroup, PrivateEndpoint) and warns if the inline
+# copies have drifted.
+#
+# Advisory by default — the job runs but does not block the merge.
+# Switch to --strict in scripts/check-drift.sh once the canonical
+# alignment is fully reconciled (see the audit doc).
+
+on:
+  pull_request:
+    paths:
+      - "KeyVault/main.tf"
+      - "KeyVaultStack/main.tf"
+      - "ResourceGroup/main.tf"
+      - "ResourceGroupSet/main.tf"
+      - "NetworkStack/main.tf"
+      - "PrivateEndpoint/main.tf"
+      - "PaloCluster/diskencryption.tf"
+      - "scripts/check-drift.sh"
+      - ".github/workflows/drift-lint.yml"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run drift check
+        run: bash scripts/check-drift.sh

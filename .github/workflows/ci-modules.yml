@@ -53,6 +53,18 @@ jobs:
         working-directory: ${{ matrix.module }}
         run: terraform validate
 
+      - name: Terraform Test
+        working-directory: ${{ matrix.module }}
+        # Runs any *.tftest.hcl found under tests/. Silent skip if the
+        # module has no tests yet — see CONTRIBUTING.md "Testing" for
+        # the convention.
+        run: |
+          if compgen -G "tests/*.tftest.hcl" > /dev/null; then
+            terraform test
+          else
+            echo "No tests/*.tftest.hcl in ${{ matrix.module }} — skipping."
+          fi
+
   validate-all:
     name: Validate All Modules (weekly)
     if: github.event_name == 'schedule'
