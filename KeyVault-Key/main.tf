@@ -20,9 +20,14 @@ resource "azurerm_key_vault_key" "this" {
   name         = each.value.name
   key_vault_id = each.value.key_vault_id
   key_type     = each.value.key_type
-  key_size     = each.value.key_size
-  curve        = each.value.curve
-  key_opts     = each.value.key_opts
+  # RSA keys default to 2048 (Azure minimum, current best-practice for
+  # workload secrets — bump to 3072/4096 explicitly when needed). EC
+  # keys ignore key_size.
+  key_size = each.value.key_size != null ? each.value.key_size : (
+    contains(["RSA", "RSA-HSM"], each.value.key_type) ? 2048 : null
+  )
+  curve    = each.value.curve
+  key_opts = each.value.key_opts
 
   not_before_date = each.value.not_before_date
   expiration_date = coalesce(each.value.expiration_date, time_offset.expiry_plus_2y.rfc3339)

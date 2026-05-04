@@ -50,10 +50,20 @@ variable "keys" {
     condition = alltrue([
       for k, v in var.keys :
       !contains(["RSA", "RSA-HSM"], v.key_type) || (
-        v.key_size != null && contains([2048, 3072, 4096], v.key_size)
+        v.key_size == null || contains([2048, 3072, 4096], v.key_size)
       )
     ])
-    error_message = "For RSA keys, key_size must be 2048, 3072, or 4096."
+    error_message = "For RSA keys, key_size must be 2048, 3072, or 4096 (or null to default to 2048)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.keys :
+      v.rotation_policy == null || v.rotation_policy.automatic == null ||
+      v.rotation_policy.automatic.time_after_creation != null ||
+      v.rotation_policy.automatic.time_before_expiry != null
+    ])
+    error_message = "rotation_policy.automatic requires at least one of time_after_creation or time_before_expiry to be set (Azure rejects an empty automatic block)."
   }
 
   validation {
