@@ -67,15 +67,39 @@ inputs = {
 |-------|------|----------|---------|-------------|
 | name | `string` | Yes | -- | Diagnostic setting name |
 | target_resource_id | `string` | Yes | -- | Target Azure resource ID |
-| logs | `list(string)` | No | `[]` | Log categories to enable |
-| metrics | `list(string)` | No | `[]` | Metric categories to enable |
+| logs | `list(string)` | No | `[]` | Per-category log names (e.g. `["kube-audit", "kube-apiserver"]`) |
+| log_groups | `list(string)` | No | `[]` | Category-group names (e.g. `["allLogs", "audit"]`). Required for AKS audit-log capture and resources whose categories evolve. |
+| metrics | `list(string)` | No | `[]` | Metric categories (typically `["AllMetrics"]`) |
 | log_analytics_workspace_id | `string` | No | -- | Log Analytics Workspace ID |
+| log_analytics_destination_type | `string` | No | -- | `Dedicated` (per-category tables, recommended) or `AzureDiagnostics` (legacy) |
 | storage_account_id | `string` | No | -- | Storage Account ID for archival |
 | event_hub_authorization_rule_id | `string` | No | -- | Event Hub auth rule ID |
 | event_hub_name | `string` | No | -- | Event Hub name |
 | marketplace_partner_resource_id | `string` | No | -- | Marketplace partner ID |
 
-At least one destination must be set.
+At least one destination must be set, **and** at least one of `logs` / `log_groups` / `metrics`.
+
+### AKS audit-log example (category_group)
+
+For AKS clusters, Microsoft now exposes the full audit stream via the
+`audit` category group rather than individual `kube-audit-admin` /
+`kube-audit` categories. Capture both control-plane logs and metrics:
+
+```hcl
+diagnostic_settings = {
+  aks = {
+    name                           = "diag-aks-api-prod-gwc-001"
+    target_resource_id             = dependency.aks.outputs.id
+    log_analytics_workspace_id     = dependency.law.outputs.id
+    log_analytics_destination_type = "Dedicated"
+    log_groups                     = ["audit", "allLogs"]
+    metrics                        = ["AllMetrics"]
+  }
+}
+```
+
+You can mix `logs` and `log_groups` in the same setting — both lists are
+expanded into individual `enabled_log` blocks under the hood.
 
 ## Outputs
 
