@@ -84,11 +84,45 @@ inputs = {
 | public_network_access_enabled | Enable public network access | `bool` | `false` | No |
 | zone_redundancy_enabled | Enable zone redundancy (Premium only) | `bool` | `true` | No |
 | data_endpoint_enabled | Enable data endpoint (Premium only) | `bool` | `true` | No |
-| georeplications | Geo-replication configuration | `list(object({...}))` | `[]` | No |
+| georeplications | Geo-replication configuration (Premium only) | `list(object({...}))` | `[]` | No |
 | network_rule_set | Network rule set | `object({...})` | `null` | No |
+| anonymous_pull_enabled | Allow unauthenticated repository read | `bool` | `false` | No |
+| export_policy_enabled | Allow exporting repository metadata (Premium only) | `bool` | `true` | No |
+| retention_policy_in_days | Auto-purge untagged manifests after N days (1-365, Premium only). null = never. | `number` | `null` | No |
+| trust_policy_enabled | Enable content trust / image signing (Premium only) | `bool` | `false` | No |
+| identity_ids | UAMI IDs to attach to the registry. Required if customer_managed_key is set. | `list(string)` | `[]` | No |
+| customer_managed_key | CMK encryption (Premium only). Object: `{ key_vault_key_id, identity_client_id }` | `object({...})` | `null` | No |
+| diagnostic_setting | Optional diag setting → LAW. Object: `{ name?, log_analytics_workspace_id, categories?, metrics_enabled? }` | `object({...})` | `null` | No |
 | role_assignments | Map of role assignments on the ACR. Key is arbitrary. | `map(object({...}))` | `{}` | No |
 | lock | Management lock (CanNotDelete or ReadOnly) | `object({ kind = string, name = optional(string) })` | `null` | No |
 | tags | Tags | `map(string)` | `{}` | No |
+
+## Premium-only features
+
+`customer_managed_key`, `retention_policy_in_days`, `trust_policy_enabled`, `export_policy_enabled` (effective enforcement), `georeplications`, `zone_redundancy_enabled`, `data_endpoint_enabled` all require `sku = "Premium"`. A precondition catches misconfigurations at plan time.
+
+### CMK example
+
+```hcl
+identity_ids = [azurerm_user_assigned_identity.acr.id]
+
+customer_managed_key = {
+  key_vault_key_id   = azurerm_key_vault_key.acr_cmk.versionless_id
+  identity_client_id = azurerm_user_assigned_identity.acr.client_id
+}
+```
+
+The UAMI must hold `Key Vault Crypto User` on the Key Vault hosting the key. Use the **versionless** key URI to enable rotation without recreating the registry.
+
+### Diagnostic settings
+
+```hcl
+diagnostic_setting = {
+  log_analytics_workspace_id = data.azurerm_log_analytics_workspace.platform.id
+  # default categories: ContainerRegistryRepositoryEvents + ContainerRegistryLoginEvents
+  # default metrics_enabled: true
+}
+```
 
 ## Outputs
 

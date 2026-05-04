@@ -134,6 +134,70 @@ variable "network_rule_set" {
 }
 
 ###############################################################
+# SECURITY HARDENING (Premium SKU)
+###############################################################
+variable "anonymous_pull_enabled" {
+  description = "Allow unauthenticated repository read access. Default false (security best-practice)."
+  type        = bool
+  default     = false
+}
+
+variable "export_policy_enabled" {
+  description = "Allow exporting repository metadata. Microsoft default is true; flip to false to prevent exfiltration via export. Premium SKU."
+  type        = bool
+  default     = true
+}
+
+variable "retention_policy_in_days" {
+  description = "Number of days to retain untagged manifests before auto-purge (Premium SKU only). null = manifests kept indefinitely."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.retention_policy_in_days == null || (var.retention_policy_in_days >= 1 && var.retention_policy_in_days <= 365)
+    error_message = "retention_policy_in_days must be between 1 and 365."
+  }
+}
+
+variable "trust_policy_enabled" {
+  description = "Enable content trust (image signing — Docker Notary v1). Premium SKU only."
+  type        = bool
+  default     = false
+}
+
+###############################################################
+# IDENTITY & CUSTOMER-MANAGED KEY (Premium SKU)
+###############################################################
+variable "identity_ids" {
+  description = "List of User-Assigned Identity IDs to attach to the registry. Required when customer_managed_key is set (the MI accesses Key Vault). Empty = no managed identity."
+  type        = list(string)
+  default     = []
+}
+
+variable "customer_managed_key" {
+  description = "CMK encryption configuration (Premium SKU only). When set, requires one entry in identity_ids whose client_id matches identity_client_id below."
+  type = object({
+    key_vault_key_id   = string
+    identity_client_id = string
+  })
+  default = null
+}
+
+###############################################################
+# DIAGNOSTIC SETTINGS
+###############################################################
+variable "diagnostic_setting" {
+  description = "Optional diagnostic settings emitting to a Log Analytics Workspace. Default categories cover ContainerRegistryRepositoryEvents + ContainerRegistryLoginEvents (audit trail for image pulls/pushes/login attempts)."
+  type = object({
+    name                       = optional(string, "diag")
+    log_analytics_workspace_id = string
+    categories                 = optional(list(string), ["ContainerRegistryRepositoryEvents", "ContainerRegistryLoginEvents"])
+    metrics_enabled            = optional(bool, true)
+  })
+  default = null
+}
+
+###############################################################
 # RBAC & LOCK
 ###############################################################
 variable "role_assignments" {

@@ -31,6 +31,29 @@ resource "azurerm_container_registry" "this" {
   zone_redundancy_enabled       = var.zone_redundancy_enabled
   data_endpoint_enabled         = var.data_endpoint_enabled
 
+  # Premium-only security/lifecycle toggles. Azure rejects them on
+  # Basic/Standard, so we set null when the SKU isn't Premium.
+  retention_policy_in_days = var.sku == "Premium" ? var.retention_policy_in_days : null
+  trust_policy_enabled     = var.sku == "Premium" ? var.trust_policy_enabled : null
+  anonymous_pull_enabled   = var.anonymous_pull_enabled
+  export_policy_enabled    = var.sku == "Premium" ? var.export_policy_enabled : null
+
+  dynamic "identity" {
+    for_each = length(var.identity_ids) > 0 ? [1] : []
+    content {
+      type         = "UserAssigned"
+      identity_ids = var.identity_ids
+    }
+  }
+
+  dynamic "encryption" {
+    for_each = var.customer_managed_key != null ? [var.customer_managed_key] : []
+    content {
+      key_vault_key_id   = encryption.value.key_vault_key_id
+      identity_client_id = encryption.value.identity_client_id
+    }
+  }
+
   dynamic "georeplications" {
     for_each = var.georeplications
     content {
@@ -56,6 +79,50 @@ resource "azurerm_container_registry" "this" {
 
   lifecycle {
     prevent_destroy = true
+
+    # Premium-only feature usage check at plan time. Caller can still
+    # downgrade to Basic/Standard, but only when no Premium-only feature
+    # is actively enabled.
+    precondition {
+      condition = var.sku == "Premium" || (
+        var.customer_managed_key == null &&
+        var.retention_policy_in_days == null &&
+        var.trust_policy_enabled == false &&
+        length(var.georeplications) == 0
+      )
+      error_message = "customer_managed_key, retention_policy_in_days, trust_policy_enabled and georeplications all require sku = \"Premium\". Set sku to Premium or unset these inputs."
+    }
+
+    # CMK requires at least one UAMI to read from Key Vault.
+    precondition {
+      condition     = var.customer_managed_key == null || length(var.identity_ids) > 0
+      error_message = "customer_managed_key requires at least one entry in identity_ids (the User-Assigned MI granted Key Vault Crypto User on the KV)."
+    }
+  }
+}
+
+###############################################################
+# RESOURCE: Diagnostic Setting (optional, single LAW destination)
+###############################################################
+resource "azurerm_monitor_diagnostic_setting" "this" {
+  count = var.diagnostic_setting != null ? 1 : 0
+
+  name                       = var.diagnostic_setting.name
+  target_resource_id         = azurerm_container_registry.this.id
+  log_analytics_workspace_id = var.diagnostic_setting.log_analytics_workspace_id
+
+  dynamic "enabled_log" {
+    for_each = var.diagnostic_setting.categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = var.diagnostic_setting.metrics_enabled ? ["AllMetrics"] : []
+    content {
+      category = enabled_metric.value
+    }
   }
 }
 
