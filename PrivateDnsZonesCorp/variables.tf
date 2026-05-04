@@ -43,6 +43,14 @@ variable "zones" {
   description = "Set of corporate private DNS zone names to host on Azure (e.g. [\"az.epttst.lu\"])."
   default     = []
   nullable    = false
+
+  validation {
+    condition = alltrue([
+      for z in var.zones :
+      can(regex("^([a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$", z))
+    ])
+    error_message = "Each zone must be a lowercase FQDN (e.g. \"az.epttst.lu\"). Labels must be 1-63 chars, start/end with alphanumeric, and may contain hyphens; the TLD is 2-63 letters. Trailing dots are not allowed."
+  }
 }
 
 variable "virtual_network_links" {
