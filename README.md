@@ -46,8 +46,7 @@ Built for [Terragrunt](https://terragrunt.gruntwork.io/) isolation but usable st
 | Module | Description |
 |--------|-------------|
 | [PaloCluster](./PaloCluster/) | Palo Alto VM-Series HA cluster (ILB, CMK encryption, App Insights) |
-| [vpn](./vpn/) | VPN Gateway with local network gateways and S2S connections |
-| [vwan](./vwan/) | Virtual WAN + Hubs + VPN Sites |
+| [vwan](./vwan/) | Virtual WAN + Hubs + VPN Sites + S2S connections (replaces the deprecated standalone `vpn` module) |
 
 ### Monitoring & Governance
 
@@ -70,7 +69,6 @@ Built for [Terragrunt](https://terragrunt.gruntwork.io/) isolation but usable st
 | [ResourceGroup](./ResourceGroup/) | Resource Group with lock and role assignments |
 | [ResourceLock](./ResourceLock/) | Management locks (CanNotDelete / ReadOnly) on any scope |
 | [StorageAccount](./StorageAccount/) | Storage Account with containers, RBAC, and lock |
-| [Naming](./Naming/) | Naming convention helper (wraps Azure/naming + custom types) |
 
 ## Module Patterns
 
@@ -102,7 +100,7 @@ Every module accepts an optional `name` variable to override the computed name.
 
 | Default | Value | Modules |
 |---------|-------|---------|
-| Public network access | `false` | KeyVault, StorageAccount, ACR, AKS, Grafana, HSM, AMW |
+| Public network access | `false` | KeyVault, StorageAccount, ACR, AKS, Grafana, AMW |
 | TLS version | `1.2` | StorageAccount |
 | RBAC authorization | `true` | KeyVault, KeyVaultStack |
 | Purge protection | `true` | KeyVault, KeyVaultStack, PaloCluster KV |
