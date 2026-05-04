@@ -106,6 +106,7 @@ inputs = {
 |------|-------------|
 | id | The Key Vault resource ID |
 | name | The Key Vault name |
-| uri | The Key Vault URI |
+| vault_uri | The Key Vault URI (e.g. `https://<name>.vault.azure.net/`). Preferred — mirrors `azurerm_key_vault.vault_uri` |
+| uri | **DEPRECATED** — alias for `vault_uri`. Will be removed in a future major version |
 | tenant_id | The Key Vault tenant ID |
 | resource | Complete Key Vault resource object |

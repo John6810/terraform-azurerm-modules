@@ -12,8 +12,13 @@ output "name" {
   value       = azurerm_key_vault.this.name
 }
 
+output "vault_uri" {
+  description = "The Key Vault URI (e.g., https://kv-name.vault.azure.net/). Mirrors azurerm_key_vault.vault_uri — preferred over the legacy `uri` output."
+  value       = azurerm_key_vault.this.vault_uri
+}
+
 output "uri" {
-  description = "The Key Vault URI (e.g., https://kv-name.vault.azure.net/)"
+  description = "DEPRECATED — use `vault_uri` instead. Kept for backwards compatibility with existing callers; will be removed in a future major version."
   value       = azurerm_key_vault.this.vault_uri
 }
 
