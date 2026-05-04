@@ -62,6 +62,34 @@ inputs = {
 | tags | Tags to assign | `map(string)` | `{}` | No |
 | idle_timeout_in_minutes | Idle timeout in minutes (4-120) | `number` | `4` | No |
 | zones | Availability zones for the NAT Gateway and Public IP | `list(string)` | `["1", "2", "3"]` | No |
+| additional_public_ips | Optional additional PIPs to attach (max 15, 16 total). Map key = name suffix. | `map(object({zones=optional(list(string))}))` | `{}` | No |
+| lock | Optional management lock to protect egress (`{kind, name?}`) | `object({...})` | `null` | No |
+
+### Multi-PIP example
+
+NAT Gateways scale outbound throughput by attaching multiple public IPs
+(up to 16). Each extra PIP gets +64K SNAT ports per associated subnet.
+
+```hcl
+additional_public_ips = {
+  "02" = {}                    # pip-ng-...-02, default zones
+  "03" = { zones = ["1"] }     # pip-ng-...-03, pinned to AZ1
+}
+```
+
+This adds `pip-<name>-02` and `pip-<name>-03` alongside the base
+`pip-<name>`. Outputs `additional_public_ip_addresses` /
+`additional_public_ip_ids` expose the map; `all_public_ip_addresses`
+gives the flat list (base + additional).
+
+### Locking
+
+Destroying a NAT Gateway breaks egress for every subnet it serves.
+For production deployments, set:
+
+```hcl
+lock = { kind = "CanNotDelete" }
+```
 
 ## Outputs
 
@@ -69,5 +97,8 @@ inputs = {
 |------|-------------|
 | id | The ID of the NAT Gateway |
 | name | The name of the NAT Gateway |
-| public_ip_address | The public IP address of the NAT Gateway |
-| public_ip_id | The ID of the public IP |
+| public_ip_address | The public IP address of the base PIP |
+| public_ip_id | The ID of the base public IP |
+| additional_public_ip_addresses | Map of additional PIP key => address (empty if none) |
+| additional_public_ip_ids | Map of additional PIP key => resource ID |
+| all_public_ip_addresses | Flat list of all attached public IP addresses (base + additional) |

@@ -25,7 +25,7 @@ locals {
 }
 
 ###############################################################
-# RESOURCE: Public IP (zone-redundant, StandardV2 SKU)
+# RESOURCE: Public IP — base (zone-redundant, StandardV2 SKU)
 ###############################################################
 resource "azapi_resource" "public_ip" {
   type      = "Microsoft.Network/publicIPAddresses@2025-03-01"
@@ -50,6 +50,33 @@ resource "azapi_resource" "public_ip" {
 }
 
 ###############################################################
+# RESOURCE: Public IP — additional (optional, multi-PIP support)
+###############################################################
+resource "azapi_resource" "additional_public_ip" {
+  for_each = var.additional_public_ips
+
+  type      = "Microsoft.Network/publicIPAddresses@2025-03-01"
+  name      = "pip-${local.name}-${each.key}"
+  location  = var.location
+  parent_id = var.resource_group_id
+  tags      = local.common_tags
+
+  body = {
+    properties = {
+      publicIPAllocationMethod = "Static"
+      publicIPAddressVersion   = "IPv4"
+    }
+    sku = {
+      name = "StandardV2"
+      tier = "Regional"
+    }
+    zones = coalesce(each.value.zones, var.zones)
+  }
+
+  response_export_values = ["properties.ipAddress"]
+}
+
+###############################################################
 # RESOURCE: NAT Gateway (StandardV2, zone-redundant)
 ###############################################################
 resource "azapi_resource" "nat_gateway" {
@@ -62,15 +89,26 @@ resource "azapi_resource" "nat_gateway" {
   body = {
     properties = {
       idleTimeoutInMinutes = var.idle_timeout_in_minutes
-      publicIpAddresses = [
-        {
-          id = azapi_resource.public_ip.id
-        }
-      ]
+      publicIpAddresses = concat(
+        [{ id = azapi_resource.public_ip.id }],
+        [for pip in azapi_resource.additional_public_ip : { id = pip.id }],
+      )
     }
     sku = {
       name = "StandardV2"
     }
     zones = var.zones
   }
+}
+
+###############################################################
+# RESOURCE: Management Lock (optional)
+###############################################################
+resource "azurerm_management_lock" "this" {
+  count = var.lock != null ? 1 : 0
+
+  lock_level = var.lock.kind
+  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
+  scope      = azapi_resource.nat_gateway.id
+  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the NAT Gateway — protects egress for associated subnets." : "Cannot delete or modify the NAT Gateway."
 }

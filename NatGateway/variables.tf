@@ -95,6 +95,50 @@ variable "zones" {
   description = "Availability zones for the NAT Gateway and Public IP (zone-redundant with StandardV2 SKU)."
 }
 
+variable "additional_public_ips" {
+  description = <<-EOT
+  Optional additional public IPs to attach to the NAT Gateway. The base
+  PIP (pip-<name>) is always created; entries here add pip-<name>-<key>
+  alongside. Map key becomes the suffix (e.g. "02" → pip-<name>-02).
+  Azure caps a NAT Gateway at 16 attached public IPs total — this map is
+  capped at 15 (16 total including the base PIP).
+
+  - `zones` - (Optional) Per-PIP zones override. Defaults to var.zones.
+  EOT
+  type = map(object({
+    zones = optional(list(string))
+  }))
+  default  = {}
+  nullable = false
+
+  validation {
+    condition     = length(var.additional_public_ips) <= 15
+    error_message = "additional_public_ips is limited to 15 entries (16 total including the base PIP — Azure NAT Gateway hard limit)."
+  }
+}
+
+variable "lock" {
+  type = object({
+    kind = string
+    name = optional(string)
+  })
+  default     = null
+  description = <<-EOT
+  Optional management lock on the NAT Gateway. Destroying a NAT Gateway
+  breaks egress on every subnet associated with it — set kind =
+  "CanNotDelete" in production to require an explicit unlock before
+  teardown.
+
+  - `kind` - (Required) "CanNotDelete" or "ReadOnly".
+  - `name` - (Optional) Lock name. Defaults to "lock-<kind>".
+  EOT
+
+  validation {
+    condition     = var.lock == null || contains(["CanNotDelete", "ReadOnly"], try(var.lock.kind, ""))
+    error_message = "Lock kind must be either \"CanNotDelete\" or \"ReadOnly\"."
+  }
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to assign"
