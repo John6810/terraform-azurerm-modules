@@ -1,0 +1,405 @@
+###############################################################
+# MODULE: AksStack — Variables
+#
+# Bundle: RG (optional) + 2 UAMIs (cluster + kubelet) + KV
+# (etcd CMK) + KV-Key + AKS cluster + user node pools + RBAC.
+#
+# Replaces 7 separate Terragrunt deployments with 1.
+# Designed against Microsoft AKS best practices: private cluster,
+# Azure CNI Overlay, KMS v2 etcd, OIDC + Workload Identity,
+# AAD RBAC, Container Insights, Image Cleaner, Auto-upgrade.
+###############################################################
+
+###############################################################
+# NAMING
+###############################################################
+variable "subscription_acronym" {
+  type     = string
+  nullable = false
+  validation {
+    condition     = can(regex("^[a-z]{2,5}$", var.subscription_acronym))
+    error_message = "subscription_acronym must be 2 to 5 lowercase letters."
+  }
+}
+
+variable "environment" {
+  type     = string
+  nullable = false
+  validation {
+    condition     = can(regex("^[a-z]{2,4}$", var.environment))
+    error_message = "environment must be 2 to 4 lowercase letters."
+  }
+}
+
+variable "region_code" {
+  type     = string
+  nullable = false
+  validation {
+    condition     = can(regex("^[a-z]{2,5}$", var.region_code))
+    error_message = "region_code must be 2 to 5 lowercase letters."
+  }
+}
+
+variable "workload" {
+  type        = string
+  description = "Workload suffix used in cluster name and naming chains. Default '001' for the first AKS in a sub."
+  default     = "001"
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9-]{0,15}$", var.workload))
+    error_message = "workload must be 1-16 lowercase alphanumerics or hyphens."
+  }
+}
+
+###############################################################
+# REQUIRED
+###############################################################
+variable "location" {
+  type     = string
+  nullable = false
+}
+
+variable "tenant_id" {
+  type        = string
+  description = "Azure AD tenant ID for AAD RBAC + KV"
+  nullable    = false
+  validation {
+    condition     = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.tenant_id))
+    error_message = "tenant_id must be a valid GUID."
+  }
+}
+
+variable "node_subnet_id" {
+  type        = string
+  description = "Subnet ID for AKS nodes (must be a /24 minimum, no NSG-required policy violation since you should provision via SubnetWithNsg or NetworkStack)."
+  nullable    = false
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/subnets/[^/]+$", var.node_subnet_id))
+    error_message = "node_subnet_id must be a valid Azure subnet resource ID."
+  }
+}
+
+variable "api_server_subnet_id" {
+  type        = string
+  description = "Optional subnet ID for API Server VNet Integration. When set, KMS v2 + VNet integration must be enabled out-of-band via 'az aks update' (azurerm v4 limitation). Set to null to keep API Server fully managed."
+  default     = null
+}
+
+###############################################################
+# RESOURCE GROUP
+###############################################################
+variable "create_resource_group" {
+  type        = bool
+  description = "When true, AksStack creates rg-{prefix}-{rg_workload}. When false, uses var.resource_group_name (must already exist)."
+  default     = true
+}
+
+variable "resource_group_name" {
+  type        = string
+  description = "Existing RG name when create_resource_group = false. Ignored otherwise."
+  default     = null
+}
+
+variable "resource_group_workload" {
+  type        = string
+  description = "Workload segment in the AKS RG name (rg-{prefix}-{rg_workload}). Default 'aks'."
+  default     = "aks"
+}
+
+variable "node_resource_group_name" {
+  type        = string
+  description = "AKS node resource group name (managed by AKS). Default 'rg-{prefix}-aks-nodes'."
+  default     = null
+}
+
+###############################################################
+# KEY VAULT (for etcd CMK + workload secrets)
+###############################################################
+variable "kv_workload" {
+  type        = string
+  description = "Workload segment in the KV name (kv-{prefix}-{kv_workload}). Default 'kv'."
+  default     = "kv"
+}
+
+variable "kv_suffix" {
+  type        = string
+  description = "Optional suffix appended to the computed KV name (e.g. '002'). KV total name must stay ≤ 24 chars."
+  default     = null
+}
+
+variable "kv_sku_name" {
+  type        = string
+  description = "Key Vault SKU. 'premium' is required for HSM-backed keys (recommended for etcd CMK)."
+  default     = "premium"
+  validation {
+    condition     = contains(["standard", "premium"], var.kv_sku_name)
+    error_message = "kv_sku_name must be 'standard' or 'premium'."
+  }
+}
+
+variable "kv_soft_delete_retention_days" {
+  type    = number
+  default = 90
+  validation {
+    condition     = var.kv_soft_delete_retention_days >= 7 && var.kv_soft_delete_retention_days <= 90
+    error_message = "soft_delete_retention_days must be 7-90."
+  }
+}
+
+variable "kv_admin_principal_ids" {
+  type        = list(string)
+  description = "Object IDs of principals (admins, deployer SP, AAD groups) granted Key Vault Administrator at the KV scope. Required at least to create the etcd CMK. Empty list = only the kubelet UAMI (Crypto User) gets access."
+  default     = []
+}
+
+variable "etcd_key_rotation_policy" {
+  description = "Rotation policy on the etcd CMK. Default: rotate after 1 year, expire after 2 years, notify 30d before expiry."
+  type = object({
+    expire_after         = optional(string, "P2Y")
+    notify_before_expiry = optional(string, "P30D")
+    automatic = optional(object({
+      time_after_creation = optional(string, "P1Y")
+      time_before_expiry  = optional(string)
+    }), { time_after_creation = "P1Y" })
+  })
+  default = {}
+}
+
+###############################################################
+# AKS CLUSTER
+###############################################################
+variable "kubernetes_version" {
+  type        = string
+  description = "Kubernetes minor version (e.g. '1.34'). null = AKS default."
+  default     = null
+}
+
+variable "sku_tier" {
+  type    = string
+  default = "Standard"
+  validation {
+    condition     = contains(["Free", "Standard", "Premium"], var.sku_tier)
+    error_message = "sku_tier must be Free, Standard or Premium."
+  }
+}
+
+variable "automatic_upgrade_channel" {
+  type    = string
+  default = "stable"
+  validation {
+    condition     = contains(["none", "patch", "stable", "rapid", "node-image"], var.automatic_upgrade_channel)
+    error_message = "automatic_upgrade_channel must be none, patch, stable, rapid, or node-image."
+  }
+}
+
+variable "node_os_upgrade_channel" {
+  type    = string
+  default = "SecurityPatch"
+  validation {
+    condition     = contains(["None", "Unmanaged", "SecurityPatch", "NodeImage"], var.node_os_upgrade_channel)
+    error_message = "node_os_upgrade_channel must be None, Unmanaged, SecurityPatch, or NodeImage."
+  }
+}
+
+variable "private_dns_zone_id" {
+  type        = string
+  description = "Private DNS zone for the AKS API server. 'None' = AKS-managed (recommended for ALZ DINE)."
+  default     = "None"
+}
+
+variable "log_analytics_workspace_id" {
+  type        = string
+  description = "Cross-sub Platform LAW resource ID — used by Microsoft Defender + AKS diagnostic settings. null = skip both (not recommended in production)."
+  default     = null
+}
+
+###############################################################
+# NETWORK PROFILE — Azure CNI Overlay (Microsoft default)
+###############################################################
+variable "pod_cidr" {
+  type    = string
+  default = "10.244.0.0/16"
+}
+
+variable "service_cidr" {
+  type    = string
+  default = "172.16.0.0/16"
+}
+
+variable "dns_service_ip" {
+  type    = string
+  default = "172.16.0.10"
+}
+
+variable "outbound_type" {
+  type        = string
+  description = "userDefinedRouting forces traffic via the spoke RT (default route → NVA). loadBalancer creates an AKS-managed PIP."
+  default     = "userDefinedRouting"
+  validation {
+    condition     = contains(["loadBalancer", "userDefinedRouting", "managedNATGateway", "userAssignedNATGateway"], var.outbound_type)
+    error_message = "outbound_type invalid."
+  }
+}
+
+variable "network_policy" {
+  type    = string
+  default = "azure"
+  validation {
+    condition     = contains(["azure", "calico", "cilium", "none"], var.network_policy)
+    error_message = "network_policy must be azure, calico, cilium, or none."
+  }
+}
+
+###############################################################
+# SYSTEM NODE POOL
+###############################################################
+variable "availability_zones" {
+  type    = list(string)
+  default = ["1", "2", "3"]
+}
+
+variable "system_pool_vm_size" {
+  type    = string
+  default = "Standard_D4ds_v5"
+}
+
+variable "system_pool_node_count" {
+  type    = number
+  default = 3
+}
+
+variable "system_pool_auto_scaling" {
+  type    = bool
+  default = false
+}
+
+variable "system_pool_min_count" {
+  type    = number
+  default = 3
+}
+
+variable "system_pool_max_count" {
+  type    = number
+  default = 6
+}
+
+variable "system_pool_os_disk_type" {
+  type    = string
+  default = "Ephemeral"
+  validation {
+    condition     = contains(["Managed", "Ephemeral"], var.system_pool_os_disk_type)
+    error_message = "system_pool_os_disk_type must be Managed or Ephemeral."
+  }
+}
+
+variable "system_pool_os_disk_size_gb" {
+  type    = number
+  default = 100
+}
+
+variable "system_pool_host_encryption_enabled" {
+  type        = bool
+  description = "Encryption at host for the system pool (F-SEC-6-bis pattern). Requires CMK Disk Encryption Set on the sub or platform-managed encryption."
+  default     = true
+}
+
+variable "system_pool_only_critical_addons_enabled" {
+  type        = bool
+  description = "Taints the system pool with CriticalAddonsOnly=true:NoSchedule to keep workloads off it. Recommended for prod multi-pool."
+  default     = false
+}
+
+variable "upgrade_max_surge" {
+  type    = string
+  default = "33%"
+}
+
+###############################################################
+# USER NODE POOLS
+###############################################################
+variable "user_node_pools" {
+  description = "Map of additional node pools (workload pools). Key = pool key (≤ 12 chars). Empty = system-only cluster."
+  type = map(object({
+    name                        = string
+    vm_size                     = string
+    os_disk_type                = optional(string, "Ephemeral")
+    os_disk_size_gb             = optional(number, 100)
+    host_encryption_enabled     = optional(bool, true)
+    enable_auto_scaling         = optional(bool, true)
+    node_count                  = optional(number)
+    min_count                   = optional(number, 1)
+    max_count                   = optional(number, 3)
+    zones                       = optional(list(string))
+    labels                      = optional(map(string), {})
+    taints                      = optional(list(string), [])
+    temporary_name_for_rotation = optional(string)
+  }))
+  default = {}
+}
+
+###############################################################
+# CLUSTER FEATURES
+###############################################################
+variable "vertical_pod_autoscaler_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "keda_enabled" {
+  type    = bool
+  default = false
+}
+
+variable "image_cleaner_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "image_cleaner_interval_hours" {
+  type    = number
+  default = 48
+}
+
+variable "enable_container_insights" {
+  type        = bool
+  description = "Enable Container Insights via the OmsAgent addon. Note: ALZ DINE policy may auto-create the addon — set false here if your platform delegates this to Policy."
+  default     = true
+}
+
+variable "maintenance_window" {
+  description = "AKS upgrade maintenance window. day = day-of-week, hour_start/end in UTC."
+  type = object({
+    day        = string
+    hour_start = number
+    hour_end   = number
+  })
+  default = null
+}
+
+###############################################################
+# RBAC ROLE ASSIGNMENTS
+###############################################################
+variable "cluster_admin_principal_ids" {
+  type        = list(string)
+  description = "Object IDs granted Azure Kubernetes Service RBAC Cluster Admin on this cluster (PIM-eligible group in prod, RBAC permanent in nprd)."
+  default     = []
+}
+
+variable "cluster_user_principal_ids" {
+  type        = list(string)
+  description = "Object IDs granted Azure Kubernetes Service Cluster User Role (kubectl exec/logs scope, no admin)."
+  default     = []
+}
+
+variable "acr_pull_target_ids" {
+  type        = list(string)
+  description = "Container Registry resource IDs where the kubelet UAMI should get AcrPull (image pull). Empty = no ACR wired."
+  default     = []
+}
+
+###############################################################
+# TAGS
+###############################################################
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
