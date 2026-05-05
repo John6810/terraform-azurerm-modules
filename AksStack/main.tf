@@ -264,24 +264,11 @@ module "aks" {
 }
 
 ###############################################################
-# Diagnostic Settings — emitted to centralised LAW.
+# Diagnostic Settings
 #
-# Inline (not via DiagnosticSettings module) because we already
-# wrap 5 modules and adding a 6th git fetch for 1 azurerm resource
-# isn't worth the ~10s init latency.
+# Owned by the wrapped Aks module, which auto-creates
+# azurerm_monitor_diagnostic_setting.this[0] whenever
+# log_analytics_workspace_id is set. AksStack does NOT add a
+# second one — duplicating same-name same-target diag settings
+# causes an Azure conflict at apply time.
 ###############################################################
-resource "azurerm_monitor_diagnostic_setting" "this" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "diag-${module.aks.name}"
-  target_resource_id         = module.aks.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
-
-  enabled_log { category = "kube-apiserver" }
-  enabled_log { category = "kube-audit-admin" }
-  enabled_log { category = "kube-controller-manager" }
-  enabled_log { category = "kube-scheduler" }
-  enabled_log { category = "cluster-autoscaler" }
-  enabled_log { category = "guard" }
-
-  enabled_metric { category = "AllMetrics" }
-}
