@@ -42,6 +42,32 @@ C'est exactement la duplication flaggée en P1 #1 (role_assignments shape) et P1
 
 Tant qu'aucune de ces conditions n'est rencontrée, **la duplication 44 × est acceptée comme dette consciente** — coût de maintenance minime tant que la convention reste stable, refactor possible en 1 sprint dédié quand le besoin émerge.
 
+### Sprint 8 backlog — `Deploy-RegisterRP-*` policy initiative
+
+**Découvert lors du bootstrap de la sub `shc` (2026-05-05)** : le LZ a `resource_provider_registrations = "none"` sur les nouvelles subs (least-privilege — le SP Terraform n'a pas le droit `Microsoft.Resources/providers/register/action`). Le commentaire dans `corporate.hcl` shc dit "registered out-of-band by an admin or by Azure Policy ALZ" — **mais aucune policy ALZ n'est en place**. Vérifié 2026-05-05 : 0 assignment matchant `Register*` sur mg-lzr-nprd / mg-mgmt-nprd / mg-corp-nprd / mg-lz-nprd.
+
+Conséquence : chaque nouvelle sub nécessite une registration manuelle des ~12 RPs nécessaires (Microsoft.Network, ContainerService, App, ContainerInstance, ServiceNetworking, KeyVault, ContainerRegistry, OperationalInsights, Insights, ManagedIdentity, Compute, Storage) avant le 1er `terragrunt apply`.
+
+**Approche actuelle (acceptée)** : script `scripts/register-rps.ps1` + section "Bootstrap d'une nouvelle subscription" dans le runbook LZ. ROI suffisant tant que ~1 nouvelle sub par an.
+
+**Sprint 8 si justifié** : déployer une initiative custom Azure Policy au scope `mg-lzr` :
+
+- 1 custom policy definition par RP (~12 policies, déclenche un `Microsoft.Resources/deployments` qui register le RP via ARM)
+- 1 custom initiative qui bundle les 12 policies
+- 1 assignment au scope `mg-lzr` avec System-Assigned MI
+- MI accorde `Microsoft.Resources/providers/register/action` sur les subs descendantes
+- Remediation déclenchée à la création de chaque sub
+
+**Effort estimé** : 4-6h (custom policies + initiative + module Terragrunt `landing-zone/platform/management/policy-rp-registration/` + tests sur 1 sub greenfield).
+
+**Trigger pour déclencher Sprint 8** :
+
+- 3+ nouvelles subs ajoutées dans un trimestre (volume justifie l'investissement)
+- Audit interne flagge la registration manuelle comme risque gouvernance
+- Décision archi de standardiser le pattern "policy-driven sub bootstrap"
+
+Tant qu'aucun trigger, le script + runbook suffisent. **Note** : Microsoft ne fournit PAS de built-in `Deploy-RegisterRP-{provider}` policy — il faut bien construire l'initiative custom (vérifié 2026-05-05).
+
 ---
 
 ## 🔴 P0 — Strategic issues (design-level)
