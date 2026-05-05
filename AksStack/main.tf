@@ -207,10 +207,15 @@ module "aks" {
   node_os_upgrade_channel   = var.node_os_upgrade_channel
   private_dns_zone_id       = var.private_dns_zone_id
 
-  # KMS v2 — managed via az aks update post-deploy when api_server_subnet_id is set
-  # Use versionless ID so KMS auto-picks the latest rotation.
-  kms_key_id       = module.etcd_key.versionless_ids["etcd"]
-  kms_key_vault_id = module.kv.id
+  # KMS v2 — gated by kms_v2_enabled.
+  # - false (default): cluster deploys without KMS, etcd CMK still created
+  #   for later activation via `az aks update`.
+  # - true + api_server_subnet_id == null: inline KMS block fires (Aks
+  #   module gate), requires KV Private reachability (PE on KV).
+  # - true + api_server_subnet_id != null: inline block stays empty, KMS
+  #   must be activated post-deploy via `az aks update`.
+  kms_key_id       = var.kms_v2_enabled ? module.etcd_key.versionless_ids["etcd"] : null
+  kms_key_vault_id = var.kms_v2_enabled ? module.kv.id : null
 
   # Network profile (CNI Overlay defaults)
   network_policy = var.network_policy

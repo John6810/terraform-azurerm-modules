@@ -151,6 +151,29 @@ variable "kv_admin_principal_ids" {
   default     = []
 }
 
+variable "kms_v2_enabled" {
+  type        = bool
+  description = <<-EOT
+  Whether to wire the etcd CMK into the AKS cluster. Default false because:
+
+  - When true AND api_server_subnet_id is null: the Aks module creates an
+    inline `key_management_service` block with `key_vault_network_access =
+    "Private"`. The cluster control plane MUST reach the KV via private
+    networking — typically a PE on the KV in the workload sub. Without that
+    PE, the apply fails at AKS create time.
+  - When true AND api_server_subnet_id is set: the inline block stays empty
+    (Aks module gate), KMS must be enabled out-of-band via `az aks update`
+    post-deploy (azurerm v4 limitation).
+  - When false: the etcd CMK is still created (cheap, forward-compatible),
+    but AKS is deployed without KMS v2. Enable later via `az aks update`
+    once the KV PE / VNet integration is in place.
+
+  Recommendation: deploy with kms_v2_enabled = false on greenfield workloads,
+  add the KV PE separately, then flip to true (or run the post-deploy CLI).
+  EOT
+  default     = false
+}
+
 variable "etcd_key_rotation_policy" {
   description = "Rotation policy on the etcd CMK. Default: rotate after 1 year, expire after 2 years, notify 30d before expiry."
   type = object({
