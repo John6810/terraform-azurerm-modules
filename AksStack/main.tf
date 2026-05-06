@@ -323,6 +323,8 @@ module "aks" {
 
   # Sequenced creation order:
   # - cp_subnet_network_contrib: required for AKS to attach to the node subnet
+  # - cp_apiserver_subnet_network_contrib: required for VNet integration
+  #   (joinLoadBalancer/action on the apiserver subnet, see rbac.tf)
   # - cp_kubelet_mi_operator: required for AKS to assign the kubelet UAMI to
   #   VMSS instances (CustomKubeletIdentityMissingPermissionError otherwise)
   # - module.kv_pe: PE on the etcd CMK KV (network path)
@@ -332,6 +334,7 @@ module "aks" {
   #   a KMS-unreachable error.
   depends_on = [
     azurerm_role_assignment.cp_subnet_network_contrib,
+    azurerm_role_assignment.cp_apiserver_subnet_network_contrib,
     azurerm_role_assignment.cp_kubelet_mi_operator,
     module.kv_pe,
     time_sleep.wait_for_dine_dns,
