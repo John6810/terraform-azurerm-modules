@@ -55,6 +55,27 @@ resource "azurerm_role_assignment" "cp_subnet_network_contrib" {
 }
 
 ###############################################################
+# RBAC #2b: CP UAMI → Network Contributor on apiserver subnet
+#
+# When VNet integration is enabled (kv_pe_subnet_id implies it via the
+# Aks module's post-create az aks update), AKS injects the apiserver
+# NICs into the apiserver subnet. The CP UAMI needs the
+# Microsoft.Network/virtualNetworks/subnets/joinLoadBalancer/action perm,
+# which Network Contributor grants.
+#
+# Without this, az aks update --enable-apiserver-vnet-integration fails
+# with ResourceMissingPermissionError on joinLoadBalancer/action.
+###############################################################
+resource "azurerm_role_assignment" "cp_apiserver_subnet_network_contrib" {
+  count = var.api_server_subnet_id != null ? 1 : 0
+
+  scope                = var.api_server_subnet_id
+  role_definition_name = "Network Contributor"
+  principal_id         = module.id_cp.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+###############################################################
 # RBAC #3: Kubelet UAMI → AcrPull on each ACR
 ###############################################################
 resource "azurerm_role_assignment" "kubelet_acr_pull" {

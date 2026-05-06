@@ -268,6 +268,12 @@ locals {
   # Shared SPN-login + cleanup wrapper. The {AZ_CMD} placeholder is replaced
   # with the actual az command per resource. Single source of truth for the
   # auth dance.
+  #
+  # Note: $ErrorActionPreference = "Stop" only catches PowerShell errors,
+  # NOT native command exit codes. Each `az` invocation is followed by an
+  # explicit $LASTEXITCODE check so a failed `az aks update` (e.g.
+  # ResourceMissingPermissionError) properly fails the local-exec instead
+  # of being silently marked as success.
   spn_az_cmd_template = <<-EOT
     $ErrorActionPreference = "Stop"
     if (-not $env:ARM_CLIENT_ID -or -not $env:ARM_CLIENT_SECRET -or -not $env:ARM_TENANT_ID) {
@@ -277,7 +283,9 @@ locals {
     $env:AZURE_CONFIG_DIR = $azDir
     try {
       az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw "az login failed (exit $LASTEXITCODE)" }
       {AZ_CMD}
+      if ($LASTEXITCODE -ne 0) { throw "az aks update failed (exit $LASTEXITCODE)" }
     } finally {
       Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
     }
