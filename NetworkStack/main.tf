@@ -244,3 +244,24 @@ resource "azapi_resource" "subnet" {
     ]
   }
 }
+
+###############################################################
+# HUB PEERING (optional spoke->hub)
+#
+# When var.hub_peering is set, creates the spoke->hub peering inline so
+# the network deployment is self-contained. The reverse hub->spoke
+# peering must be declared on the hub side (connectivity sub) — Azure
+# requires both sides for 'Connected' state.
+###############################################################
+resource "azurerm_virtual_network_peering" "hub" {
+  count = var.hub_peering != null ? 1 : 0
+
+  name                         = var.hub_peering.name
+  resource_group_name          = local.effective_rg_name
+  virtual_network_name         = azurerm_virtual_network.this.name
+  remote_virtual_network_id    = var.hub_peering.remote_virtual_network_id
+  allow_forwarded_traffic      = var.hub_peering.allow_forwarded_traffic
+  allow_gateway_transit        = var.hub_peering.allow_gateway_transit
+  use_remote_gateways          = var.hub_peering.use_remote_gateways
+  allow_virtual_network_access = true
+}

@@ -71,3 +71,8 @@ output "nsg_names" {
   description = "Map of subnet key => NSG name."
   value       = { for k, v in azurerm_network_security_group.this : k => v.name }
 }
+
+output "hub_peering_id" {
+  description = "Resource ID of the spoke->hub peering, or null when hub_peering not set."
+  value       = var.hub_peering != null ? azurerm_virtual_network_peering.hub[0].id : null
+}
