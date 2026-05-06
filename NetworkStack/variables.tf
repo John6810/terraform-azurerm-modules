@@ -285,6 +285,34 @@ variable "subnets" {
 }
 
 ###############################################################
+# HUB PEERING (optional)
+###############################################################
+variable "hub_peering" {
+  description = <<-EOT
+  Optional spoke-to-hub VNet peering created inside this module. Default null
+  = no peering (caller must declare it separately, e.g. via the VNetPeering
+  module). When set, NetworkStack creates the spoke->hub peering inline so
+  the network deployment is self-contained.
+
+  The reverse hub->spoke peering still lives in the connectivity sub
+  (aggregator pattern: 1 hub VNet ↔ N spokes). Both sides must be applied
+  for the peering to reach 'Connected' state.
+
+  Cross-sub peering: the module's deployer SP needs Network Contributor on
+  the hub VNet's RG. allow_forwarded_traffic = true is typical for
+  hub-and-spoke with NVA (Palo) so the hub can forward spoke traffic.
+  EOT
+  type = object({
+    name                      = string
+    remote_virtual_network_id = string
+    allow_forwarded_traffic   = optional(bool, true)
+    allow_gateway_transit     = optional(bool, false)
+    use_remote_gateways       = optional(bool, false)
+  })
+  default = null
+}
+
+###############################################################
 # TAGS
 ###############################################################
 variable "tags" {
