@@ -84,6 +84,25 @@ variable "api_server_subnet_id" {
   default     = null
 }
 
+variable "kv_pe_subnet_id" {
+  type        = string
+  description = <<-EOT
+  Subnet ID where the Private Endpoint targeting the etcd CMK Key Vault is
+  deployed. The PE exposes subresource 'vault'. The privateDnsZoneGroup is
+  created automatically by ALZ DINE Policy (cross-sub privatelink.vaultcore.azure.net
+  zone in connectivity), so this stack does not pass private_dns_zone_ids.
+
+  Mandatory: every KV in this LZ must have a PE — KV is deployed with
+  public_network_access_enabled = false and the AKS control plane (or any
+  caller) needs the PE to reach the etcd CMK for KMS v2.
+  EOT
+  nullable    = false
+  validation {
+    condition     = can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.Network/virtualNetworks/[^/]+/subnets/[^/]+$", var.kv_pe_subnet_id))
+    error_message = "kv_pe_subnet_id must be a valid Azure subnet resource ID."
+  }
+}
+
 ###############################################################
 # RESOURCE GROUP
 ###############################################################
