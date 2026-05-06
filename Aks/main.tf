@@ -293,7 +293,7 @@ resource "null_resource" "enable_vnet_integration" {
   }
 
   provisioner "local-exec" {
-    interpreter = ["pwsh", "-Command"]
+    interpreter = ["powershell", "-NoProfile", "-Command"]
     command = replace(
       local.spn_az_cmd_template,
       "{AZ_CMD}",
@@ -337,7 +337,7 @@ resource "null_resource" "enable_kms" {
   }
 
   provisioner "local-exec" {
-    interpreter = ["pwsh", "-Command"]
+    interpreter = ["powershell", "-NoProfile", "-Command"]
     command = replace(
       local.spn_az_cmd_template,
       "{AZ_CMD}",
