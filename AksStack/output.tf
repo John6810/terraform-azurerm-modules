@@ -58,6 +58,17 @@ output "etcd_key_versionless_id" {
   value       = module.etcd_key.versionless_ids["etcd"]
 }
 
+# ─── Key Vault Private Endpoint ──────────────────────────────
+output "kv_private_endpoint_id" {
+  description = "Resource ID of the Private Endpoint targeting the etcd CMK Key Vault."
+  value       = module.kv_pe.ids["kv"]
+}
+
+output "kv_private_endpoint_ip" {
+  description = "Private IP address of the Key Vault Private Endpoint (null until ALZ DINE Policy completes the privateDnsZoneGroup, which doesn't change the NIC IP)."
+  value       = module.kv_pe.private_ip_addresses["kv"]
+}
+
 # ─── AKS cluster ─────────────────────────────────────────────
 output "cluster_id" {
   value = module.aks.id

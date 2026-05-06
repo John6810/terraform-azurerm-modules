@@ -136,6 +136,36 @@ module "kv" {
 }
 
 ###############################################################
+# Key Vault Private Endpoint
+#
+# Mandatory in this LZ — KV is deployed with public_network_access_enabled
+# = false, so anything that needs to talk to the KV (AKS control plane for
+# KMS v2, pods via SDK or Secrets Store CSI) requires a PE.
+#
+# subresource = "vault". privateDnsZoneGroup created by ALZ DINE Policy
+# (privatelink.vaultcore.azure.net zone in connectivity sub) — module's
+# baked-in `lifecycle ignore_changes [private_dns_zone_group]` keeps Policy
+# and Terraform from fighting.
+###############################################################
+module "kv_pe" {
+  source = "git::https://github.com/John6810/terraform-azurerm-modules.git//PrivateEndpoint?ref=main"
+
+  location            = var.location
+  resource_group_name = local.effective_rg_name
+  subnet_id           = var.kv_pe_subnet_id
+
+  private_endpoints = {
+    kv = {
+      name              = "pep-${local.prefix}-${var.kv_workload}-001"
+      resource_id       = module.kv.id
+      subresource_names = ["vault"]
+    }
+  }
+
+  tags = local.effective_tags
+}
+
+###############################################################
 # Key Vault Key — etcd CMK (KMS v2)
 #
 # RSA 2048, full key_opts for KMS, automatic rotation.
@@ -260,8 +290,15 @@ module "aks" {
 
   tags = local.effective_tags
 
+  # Sequenced creation order:
+  # - cp_subnet_network_contrib: required for AKS to attach to the node subnet
+  # - module.kv_pe: when kms_v2_enabled = true, the AKS control plane reaches
+  #   the KV via this PE during cluster create. Even when KMS is disabled,
+  #   we keep the dependency for consistency (PE creation is cheap and Policy
+  #   propagation can race with workload pods on first apply).
   depends_on = [
     azurerm_role_assignment.cp_subnet_network_contrib,
+    module.kv_pe,
   ]
 }
 
