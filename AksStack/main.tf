@@ -170,6 +170,27 @@ module "kv_pe" {
 }
 
 ###############################################################
+# DNS propagation wait (ALZ DINE Policy)
+#
+# After the KV PE is created, ALZ DINE Policy deploys the
+# privateDnsZoneGroup (privatelink.vaultcore.azure.net A record).
+# Propagation typically takes 1-5 min. The AKS create call attaches
+# the etcd CMK via KMS Private and resolves the KV through this DNS,
+# so we sleep before triggering the cluster create to avoid the race.
+#
+# Only fires on initial PE creation. Configurable via
+# var.kv_pe_dns_propagation_wait (default 5m, set "0s" to skip).
+###############################################################
+resource "time_sleep" "wait_for_dine_dns" {
+  depends_on      = [module.kv_pe]
+  create_duration = var.kv_pe_dns_propagation_wait
+
+  triggers = {
+    pe_id = module.kv_pe.ids["kv"]
+  }
+}
+
+###############################################################
 # Key Vault Key — etcd CMK (KMS v2)
 #
 # RSA 2048, full key_opts for KMS, automatic rotation.
@@ -296,13 +317,15 @@ module "aks" {
 
   # Sequenced creation order:
   # - cp_subnet_network_contrib: required for AKS to attach to the node subnet
-  # - module.kv_pe: when kms_v2_enabled = true, the AKS control plane reaches
-  #   the KV via this PE during cluster create. Even when KMS is disabled,
-  #   we keep the dependency for consistency (PE creation is cheap and Policy
-  #   propagation can race with workload pods on first apply).
+  # - module.kv_pe: PE on the etcd CMK KV (network path)
+  # - time_sleep.wait_for_dine_dns: ALZ DINE Policy DNS group propagation
+  #   delay — the AKS create call resolves the KV via privatelink.vaultcore
+  #   when KMS attaches; without this wait, the first apply often fails with
+  #   a KMS-unreachable error.
   depends_on = [
     azurerm_role_assignment.cp_subnet_network_contrib,
     module.kv_pe,
+    time_sleep.wait_for_dine_dns,
   ]
 }
 
