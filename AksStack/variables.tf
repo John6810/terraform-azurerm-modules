@@ -229,6 +229,17 @@ variable "private_dns_zone_id" {
   default     = "None"
 }
 
+variable "private_cluster_public_fqdn_enabled" {
+  type        = bool
+  description = <<-EOT
+  Whether AKS publishes a public FQDN that resolves to the private API
+  server IP. null = auto-derive from private_dns_zone_id ('None' -> true,
+  custom zone -> false). Set explicitly to false in production to hide
+  the cluster's existence from public DNS queries.
+  EOT
+  default     = null
+}
+
 variable "log_analytics_workspace_id" {
   type        = string
   description = "Cross-sub Platform LAW resource ID — used by Microsoft Defender + AKS diagnostic settings. null = skip both (not recommended in production)."
@@ -269,6 +280,26 @@ variable "network_policy" {
   validation {
     condition     = contains(["azure", "calico", "cilium", "none"], var.network_policy)
     error_message = "network_policy must be azure, calico, cilium, or none."
+  }
+}
+
+variable "network_data_plane" {
+  type        = string
+  description = <<-EOT
+  Dataplane for Azure CNI Overlay: 'azure' (default) or 'cilium' (eBPF-based,
+  enables Advanced Container Networking Services). Cilium dataplane requires
+  network_policy = 'cilium'. Greenfield clusters can opt in for better
+  performance + observability; brownfield clusters cannot switch dataplane
+  in place.
+  EOT
+  default     = "azure"
+  validation {
+    condition     = contains(["azure", "cilium"], var.network_data_plane)
+    error_message = "network_data_plane must be 'azure' or 'cilium'."
+  }
+  validation {
+    condition     = var.network_data_plane != "cilium" || var.network_policy == "cilium"
+    error_message = "network_data_plane = 'cilium' requires network_policy = 'cilium'."
   }
 }
 
@@ -340,7 +371,15 @@ variable "upgrade_max_surge" {
 # USER NODE POOLS
 ###############################################################
 variable "user_node_pools" {
-  description = "Map of additional node pools (workload pools). Key = pool key (≤ 12 chars). Empty = system-only cluster."
+  description = <<-EOT
+  Map of additional node pools (workload pools). Key = pool key (≤ 12 chars).
+  Empty = system-only cluster.
+
+  Spot pools: set priority = "Spot" (defaults to "Regular"). When Spot,
+  eviction_policy and spot_max_price take effect; Azure auto-applies the
+  kubernetes.azure.com/scalesetpriority=spot:NoSchedule taint, so workloads
+  must add the matching toleration. Spot pools require autoscaling.
+  EOT
   type = map(object({
     name                        = string
     vm_size                     = string
@@ -355,8 +394,29 @@ variable "user_node_pools" {
     labels                      = optional(map(string), {})
     taints                      = optional(list(string), [])
     temporary_name_for_rotation = optional(string)
+    priority                    = optional(string, "Regular")
+    eviction_policy             = optional(string, "Delete")
+    spot_max_price              = optional(number, -1)
   }))
   default = {}
+  validation {
+    condition = alltrue([
+      for k, v in var.user_node_pools : contains(["Regular", "Spot"], v.priority)
+    ])
+    error_message = "user_node_pools[*].priority must be 'Regular' or 'Spot'."
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.user_node_pools : contains(["Delete", "Deallocate"], v.eviction_policy)
+    ])
+    error_message = "user_node_pools[*].eviction_policy must be 'Delete' or 'Deallocate'."
+  }
+  validation {
+    condition = alltrue([
+      for k, v in var.user_node_pools : v.priority != "Spot" || v.enable_auto_scaling
+    ])
+    error_message = "Spot node pools require enable_auto_scaling = true."
+  }
 }
 
 ###############################################################

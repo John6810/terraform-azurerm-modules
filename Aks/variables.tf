@@ -158,6 +158,23 @@ variable "private_dns_zone_id" {
   default     = "None"
 }
 
+variable "private_cluster_public_fqdn_enabled" {
+  type        = bool
+  description = <<-EOT
+  When true, AKS publishes a public FQDN that resolves to the private API
+  server IP. Useful for kubectl from machines outside the VNet (still needs
+  VPN/private link for the actual connection — only DNS is public).
+
+  Default null = compute from private_dns_zone_id:
+    - 'None'         -> true  (no custom DNS zone, public FQDN helps kubectl resolution)
+    - any other value -> false (custom DNS zone already serves resolution privately)
+
+  Set explicitly to false in production to hide the cluster's existence
+  even from DNS queries.
+  EOT
+  default     = null
+}
+
 variable "api_server_subnet_id" {
   type        = string
   description = "Dedicated subnet ID for API Server VNet Integration. Null = disabled."
@@ -175,6 +192,27 @@ variable "network_policy" {
   validation {
     condition     = contains(["azure", "calico", "cilium"], var.network_policy)
     error_message = "network_policy must be azure, calico, or cilium."
+  }
+}
+
+variable "network_data_plane" {
+  type        = string
+  description = <<-EOT
+  Dataplane for Azure CNI Overlay: 'azure' (default) or 'cilium'. Cilium
+  dataplane (eBPF, Hubble observability) requires network_policy = 'cilium'
+  and is GA on AKS since Nov 2024. Microsoft recommends Cilium for new
+  clusters; switching dataplane on an existing cluster requires recreate.
+  EOT
+  default     = "azure"
+
+  validation {
+    condition     = contains(["azure", "cilium"], var.network_data_plane)
+    error_message = "network_data_plane must be 'azure' or 'cilium'."
+  }
+
+  validation {
+    condition     = var.network_data_plane != "cilium" || var.network_policy == "cilium"
+    error_message = "network_data_plane = 'cilium' requires network_policy = 'cilium'."
   }
 }
 
@@ -319,6 +357,9 @@ variable "user_node_pools" {
   - `taints`                      - (Optional) Node taints.
   - `temporary_name_for_rotation` - (Optional) Temp name for rotation (max 12 chars).
   - `host_encryption_enabled`     - (Optional) Enables Encryption at Host on the pool. Defaults to false. Requires feature registration.
+  - `priority`                    - (Optional) 'Regular' (default) or 'Spot'. Spot pools cost ~50-90% less but can be evicted at any time. Use for non-critical workloads with proper taints/tolerations.
+  - `eviction_policy`             - (Optional) For Spot pools only: 'Delete' (default) or 'Deallocate'. Delete is recommended.
+  - `spot_max_price`              - (Optional) For Spot pools only: max price per hour, -1 (default) means up to the on-demand price.
   EOT
   type = map(object({
     name                        = string
@@ -334,9 +375,34 @@ variable "user_node_pools" {
     taints                      = optional(list(string), [])
     temporary_name_for_rotation = optional(string)
     host_encryption_enabled     = optional(bool, false)
+    priority                    = optional(string, "Regular")
+    eviction_policy             = optional(string, "Delete")
+    spot_max_price              = optional(number, -1)
   }))
   default  = {}
   nullable = false
+
+  validation {
+    condition = alltrue([
+      for p in var.user_node_pools : contains(["Regular", "Spot"], p.priority)
+    ])
+    error_message = "user_node_pools[*].priority must be 'Regular' or 'Spot'."
+  }
+
+  validation {
+    condition = alltrue([
+      for p in var.user_node_pools : contains(["Delete", "Deallocate"], p.eviction_policy)
+    ])
+    error_message = "user_node_pools[*].eviction_policy must be 'Delete' or 'Deallocate'."
+  }
+
+  validation {
+    condition = alltrue([
+      for p in var.user_node_pools :
+      p.priority == "Regular" || p.enable_auto_scaling == true
+    ])
+    error_message = "Spot user node pools must have enable_auto_scaling = true (Spot nodes are evicted at any time, autoscaler must repair the pool)."
+  }
 }
 
 ###############################################################

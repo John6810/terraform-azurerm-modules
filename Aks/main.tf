@@ -33,9 +33,10 @@ resource "azurerm_kubernetes_cluster" "this" {
   node_resource_group = local.node_rg_name
 
   # ─── Private Cluster ─────────────────────────────────────────
-  private_cluster_enabled             = true
-  private_dns_zone_id                 = var.private_dns_zone_id
-  private_cluster_public_fqdn_enabled = var.private_dns_zone_id == "None"
+  private_cluster_enabled = true
+  private_dns_zone_id     = var.private_dns_zone_id
+  # Public FQDN resolution: explicit override > auto-compute from DNS zone
+  private_cluster_public_fqdn_enabled = var.private_cluster_public_fqdn_enabled != null ? var.private_cluster_public_fqdn_enabled : (var.private_dns_zone_id == "None")
 
   # ─── Identity (UserAssigned) ─────────────────────────────────
   identity {
@@ -54,6 +55,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
     network_policy      = var.network_policy
+    network_data_plane  = var.network_data_plane
     pod_cidr            = var.pod_cidr
     service_cidr        = var.service_cidr
     dns_service_ip      = var.dns_service_ip
@@ -189,6 +191,13 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   node_labels                 = each.value.labels
   node_taints                 = each.value.taints
   temporary_name_for_rotation = coalesce(each.value.temporary_name_for_rotation, "${substr(each.value.name, 0, 9)}tmp")
+
+  # Spot pool support — Regular by default, Spot opts in via priority="Spot".
+  # Azure auto-applies the kubernetes.azure.com/scalesetpriority=spot:NoSchedule
+  # taint to spot pools, but workload-specific tolerations are still required.
+  priority        = each.value.priority
+  eviction_policy = each.value.priority == "Spot" ? each.value.eviction_policy : null
+  spot_max_price  = each.value.priority == "Spot" ? each.value.spot_max_price : null
 
   upgrade_settings {
     max_surge = var.upgrade_max_surge

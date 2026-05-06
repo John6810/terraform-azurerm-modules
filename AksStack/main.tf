@@ -201,11 +201,12 @@ module "aks" {
   api_server_subnet_id = var.api_server_subnet_id
 
   # Cluster config
-  kubernetes_version        = var.kubernetes_version
-  sku_tier                  = var.sku_tier
-  automatic_upgrade_channel = var.automatic_upgrade_channel
-  node_os_upgrade_channel   = var.node_os_upgrade_channel
-  private_dns_zone_id       = var.private_dns_zone_id
+  kubernetes_version                  = var.kubernetes_version
+  sku_tier                            = var.sku_tier
+  automatic_upgrade_channel           = var.automatic_upgrade_channel
+  node_os_upgrade_channel             = var.node_os_upgrade_channel
+  private_dns_zone_id                 = var.private_dns_zone_id
+  private_cluster_public_fqdn_enabled = var.private_cluster_public_fqdn_enabled
 
   # KMS v2 — gated by kms_v2_enabled.
   # - false (default): cluster deploys without KMS, etcd CMK still created
@@ -218,11 +219,12 @@ module "aks" {
   kms_key_vault_id = var.kms_v2_enabled ? module.kv.id : null
 
   # Network profile (CNI Overlay defaults)
-  network_policy = var.network_policy
-  pod_cidr       = var.pod_cidr
-  service_cidr   = var.service_cidr
-  dns_service_ip = var.dns_service_ip
-  outbound_type  = var.outbound_type
+  network_policy     = var.network_policy
+  network_data_plane = var.network_data_plane
+  pod_cidr           = var.pod_cidr
+  service_cidr       = var.service_cidr
+  dns_service_ip     = var.dns_service_ip
+  outbound_type      = var.outbound_type
 
   # System pool
   system_pool_vm_size                      = var.system_pool_vm_size
