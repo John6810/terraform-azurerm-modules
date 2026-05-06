@@ -103,6 +103,23 @@ variable "kv_pe_subnet_id" {
   }
 }
 
+variable "kv_pe_dns_propagation_wait" {
+  type        = string
+  description = <<-EOT
+  Sleep duration after KV Private Endpoint creation, before the AKS cluster
+  is created. Gives ALZ DINE Policy time to deploy the privateDnsZoneGroup
+  (cross-sub privatelink.vaultcore.azure.net A record) so the AKS control
+  plane can resolve the KV via private IP at KMS-attach time.
+
+  Format: Go duration string ('30s', '3m', '5m'). Set '0s' to disable.
+  Default '5m' covers DINE latency in most tenants. Increase if you observe
+  KMS-unreachable errors at first apply.
+
+  Only sleeps on initial PE creation — subsequent applies are unaffected.
+  EOT
+  default     = "5m"
+}
+
 ###############################################################
 # RESOURCE GROUP
 ###############################################################
