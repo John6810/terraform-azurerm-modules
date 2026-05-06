@@ -250,59 +250,43 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 # in a single PUT. Azure also forbids KMS Private without VNet integration
 # (400 BadRequest at create time when only KMS is set).
 #
-# Solution: cluster is created without these, then azapi_update_resource
-# PATCHes the resource to enable both. Order matters: VNet integration
-# must land before KMS Private (Azure validates the constraint at PATCH).
+# Solution: cluster is created without these, then a single combined
+# azapi_update_resource PATCHes both properties atomically. Two separate
+# PATCHes race (Azure rejects the KMS PATCH because apiServerAccessProfile
+# isn't fully settled by then), so we send one body containing both.
 #
 # `lifecycle ignore_changes [api_server_access_profile, key_management_service]`
 # on the azurerm_kubernetes_cluster keeps the two providers from fighting.
 ###############################################################
-
-# 1. Enable API Server VNet Integration when an apiserver subnet is provided.
-resource "azapi_update_resource" "vnet_integration" {
+resource "azapi_update_resource" "post_create" {
   count = var.api_server_subnet_id != null ? 1 : 0
 
   type        = "Microsoft.ContainerService/managedClusters@2024-09-01"
   resource_id = azurerm_kubernetes_cluster.this.id
 
   body = {
-    properties = {
-      apiServerAccessProfile = {
-        enableVnetIntegration = true
-        subnetId              = var.api_server_subnet_id
-      }
-    }
+    properties = merge(
+      {
+        apiServerAccessProfile = {
+          enableVnetIntegration = true
+          subnetId              = var.api_server_subnet_id
+        }
+      },
+      var.kms_key_id != null ? {
+        securityProfile = {
+          azureKeyVaultKms = {
+            enabled               = true
+            keyId                 = var.kms_key_id
+            keyVaultNetworkAccess = "Private"
+            keyVaultResourceId    = var.kms_key_vault_id
+          }
+        }
+      } : {}
+    )
   }
 
   depends_on = [
     azurerm_kubernetes_cluster.this,
     azurerm_kubernetes_cluster_node_pool.this,
-  ]
-}
-
-# 2. Enable KMS v2 etcd encryption with Private network access. Requires
-#    VNet integration to be active (Azure constraint), so depends on
-#    azapi_update_resource.vnet_integration. The KV must be reachable via PE.
-resource "azapi_update_resource" "kms" {
-  count = var.kms_key_id != null && var.api_server_subnet_id != null ? 1 : 0
-
-  type        = "Microsoft.ContainerService/managedClusters@2024-09-01"
-  resource_id = azurerm_kubernetes_cluster.this.id
-
-  body = {
-    properties = {
-      securityProfile = {
-        azureKeyVaultKms = {
-          enabled               = true
-          keyId                 = var.kms_key_id
-          keyVaultNetworkAccess = "Private"
-          keyVaultResourceId    = var.kms_key_vault_id
-        }
-      }
-    }
-  }
-
-  depends_on = [
-    azapi_update_resource.vnet_integration,
   ]
 }
