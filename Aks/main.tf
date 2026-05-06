@@ -323,15 +323,65 @@ resource "null_resource" "enable_vnet_integration" {
   ]
 }
 
-# Brief settle window — Azure may still be propagating apiServerAccessProfile
-# state when the KMS update fires, even after `az aks update` returns.
-resource "time_sleep" "wait_for_vnet_integration" {
-  count           = var.api_server_subnet_id != null && var.kms_key_id != null ? 1 : 0
-  depends_on      = [null_resource.enable_vnet_integration]
-  create_duration = "30s"
+# Cluster restart required by Azure after enabling VNet integration.
+# Per MS docs (https://learn.microsoft.com/azure/aks/api-server-vnet-integration):
+#
+#   "Manual restart required. After enabling API Server VNet Integration
+#    using `az aks update --enable-apiserver-vnet-integration`, due to
+#    control plane resource transition, you must immediately restart the
+#    cluster for the change to take effect. This restart is not automated.
+#    Delaying the restart increases the risk of capacity becoming
+#    unavailable, which can prevent the API server from starting."
+#
+# Implemented as az aks stop + az aks start. ~10-15 min total. Skipped
+# entirely when api_server_subnet_id is null.
+resource "null_resource" "restart_after_vnet_integration" {
+  count = var.api_server_subnet_id != null ? 1 : 0
 
   triggers = {
     vnet_integration_id = null_resource.enable_vnet_integration[0].id
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["powershell", "-NoProfile", "-Command"]
+    command = <<-EOT
+      $ErrorActionPreference = "Stop"
+      if (-not $env:ARM_CLIENT_ID -or -not $env:ARM_CLIENT_SECRET -or -not $env:ARM_TENANT_ID) {
+        throw "ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID must be set."
+      }
+      $azDir = Join-Path ([System.IO.Path]::GetTempPath()) ("az-tf-" + [System.Guid]::NewGuid().ToString())
+      $env:AZURE_CONFIG_DIR = $azDir
+      try {
+        az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "az login failed (exit $LASTEXITCODE)" }
+
+        Write-Host "Stopping AKS cluster (~5-7 min)..."
+        az aks stop --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --only-show-errors
+        if ($LASTEXITCODE -ne 0) { throw "az aks stop failed (exit $LASTEXITCODE)" }
+
+        Write-Host "Starting AKS cluster (~5-7 min)..."
+        az aks start --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --only-show-errors
+        if ($LASTEXITCODE -ne 0) { throw "az aks start failed (exit $LASTEXITCODE)" }
+      } finally {
+        Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
+      }
+    EOT
+  }
+
+  depends_on = [
+    null_resource.enable_vnet_integration,
+  ]
+}
+
+# Brief settle window after restart — give the API server time to fully
+# stabilize on its new VNet-integrated endpoint before KMS attaches.
+resource "time_sleep" "wait_for_vnet_integration" {
+  count           = var.api_server_subnet_id != null && var.kms_key_id != null ? 1 : 0
+  depends_on      = [null_resource.restart_after_vnet_integration]
+  create_duration = "60s"
+
+  triggers = {
+    restart_id = null_resource.restart_after_vnet_integration[0].id
   }
 }
 
