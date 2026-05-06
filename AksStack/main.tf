@@ -270,7 +270,13 @@ module "aks" {
   #   module gate), requires KV Private reachability (PE on KV).
   # - true + api_server_subnet_id != null: inline block stays empty, KMS
   #   must be activated post-deploy via `az aks update`.
-  kms_key_id       = var.kms_v2_enabled ? module.etcd_key.versionless_ids["etcd"] : null
+  #
+  # Note: azurerm requires a VERSIONED key_vault_key_id (with GUID suffix).
+  # Auto-rotation drift is suppressed by the Aks module's lifecycle
+  # ignore_changes [key_management_service]. The versionless id stays
+  # exposed via the post_deploy_az_cli_commands output for the CLI fallback
+  # (`az aks update --azure-keyvault-kms-key-id` accepts both).
+  kms_key_id       = var.kms_v2_enabled ? module.etcd_key.ids["etcd"] : null
   kms_key_vault_id = var.kms_v2_enabled ? module.kv.id : null
 
   # Network profile (CNI Overlay defaults)
