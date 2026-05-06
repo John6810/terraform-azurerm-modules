@@ -246,19 +246,44 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 # RESOURCE: Post-create — VNet Integration + KMS Private (via az CLI)
 # ─────────────────────────────────────────────────────────────
 # azurerm v4 cannot create a cluster with api_server_access_profile
-# or KMS Private inline. azapi_update_resource was tried but doesn't
-# correctly persist apiServerAccessProfile (PUT body merge bug with AKS
-# managedClusters): the "update" reports success yet Azure shows
-# enableVnetIntegration = null afterwards.
+# or KMS Private inline. azapi_update_resource doesn't correctly
+# persist apiServerAccessProfile (PUT body merge bug with AKS
+# managedClusters): reports success yet Azure shows enableVnetIntegration
+# = null afterwards.
 #
-# Pragmatic workaround: null_resource + local-exec calling `az aks update`,
-# which the AKS team supports as the canonical way to flip these flags.
-# Two sequential commands so Azure validates the apiServerAccessProfile
-# state before KMS Private is attached. Idempotent via `triggers`.
+# Workaround: null_resource + local-exec calling `az aks update`. The
+# provisioner authenticates az CLI as the same SPN that Terraform uses
+# (via ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID env vars), in
+# an isolated AZURE_CONFIG_DIR so it doesn't pollute the user's az login
+# session. Cleaned up after each call.
 #
-# Requires az CLI on the Terraform runner. `lifecycle ignore_changes`
-# on the cluster keeps azurerm from fighting the post-create state.
+# Pre-requisites on the Terraform runner:
+#   - PowerShell 7+ (`pwsh`) available on PATH
+#   - `az` CLI installed
+#   - Terraform authenticated via SPN secret (ARM_CLIENT_ID, ARM_CLIENT_SECRET,
+#     ARM_TENANT_ID set in env). This is the standard Azure DevOps pipeline
+#     setup; for cert / OIDC / managed identity, the script needs adaptation.
 ###############################################################
+locals {
+  # Shared SPN-login + cleanup wrapper. The {AZ_CMD} placeholder is replaced
+  # with the actual az command per resource. Single source of truth for the
+  # auth dance.
+  spn_az_cmd_template = <<-EOT
+    $ErrorActionPreference = "Stop"
+    if (-not $env:ARM_CLIENT_ID -or -not $env:ARM_CLIENT_SECRET -or -not $env:ARM_TENANT_ID) {
+      throw "ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID must be set so the local-exec authenticates as the same SPN Terraform uses (got: ID=$($env:ARM_CLIENT_ID -ne $null), SECRET=$($env:ARM_CLIENT_SECRET -ne $null), TENANT=$($env:ARM_TENANT_ID -ne $null))."
+    }
+    $azDir = Join-Path ([System.IO.Path]::GetTempPath()) ("az-tf-" + [System.Guid]::NewGuid().ToString())
+    $env:AZURE_CONFIG_DIR = $azDir
+    try {
+      az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
+      {AZ_CMD}
+    } finally {
+      Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
+    }
+  EOT
+}
+
 resource "null_resource" "enable_vnet_integration" {
   count = var.api_server_subnet_id != null ? 1 : 0
 
@@ -268,16 +293,20 @@ resource "null_resource" "enable_vnet_integration" {
   }
 
   provisioner "local-exec" {
-    command = join(" ", [
-      "az aks update",
-      "--name ${azurerm_kubernetes_cluster.this.name}",
-      "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
-      "--subscription ${data.azurerm_client_config.current.subscription_id}",
-      "--enable-apiserver-vnet-integration",
-      "--apiserver-subnet-id ${var.api_server_subnet_id}",
-      "--yes",
-      "--only-show-errors",
-    ])
+    interpreter = ["pwsh", "-Command"]
+    command = replace(
+      local.spn_az_cmd_template,
+      "{AZ_CMD}",
+      join(" ", [
+        "az aks update",
+        "--name ${azurerm_kubernetes_cluster.this.name}",
+        "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
+        "--subscription ${data.azurerm_client_config.current.subscription_id}",
+        "--enable-apiserver-vnet-integration",
+        "--apiserver-subnet-id ${var.api_server_subnet_id}",
+        "--yes --only-show-errors",
+      ])
+    )
   }
 
   depends_on = [
@@ -308,18 +337,22 @@ resource "null_resource" "enable_kms" {
   }
 
   provisioner "local-exec" {
-    command = join(" ", [
-      "az aks update",
-      "--name ${azurerm_kubernetes_cluster.this.name}",
-      "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
-      "--subscription ${data.azurerm_client_config.current.subscription_id}",
-      "--enable-azure-keyvault-kms",
-      "--azure-keyvault-kms-key-id ${var.kms_key_id}",
-      "--azure-keyvault-kms-key-vault-network-access Private",
-      "--azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id}",
-      "--yes",
-      "--only-show-errors",
-    ])
+    interpreter = ["pwsh", "-Command"]
+    command = replace(
+      local.spn_az_cmd_template,
+      "{AZ_CMD}",
+      join(" ", [
+        "az aks update",
+        "--name ${azurerm_kubernetes_cluster.this.name}",
+        "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
+        "--subscription ${data.azurerm_client_config.current.subscription_id}",
+        "--enable-azure-keyvault-kms",
+        "--azure-keyvault-kms-key-id ${var.kms_key_id}",
+        "--azure-keyvault-kms-key-vault-network-access Private",
+        "--azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id}",
+        "--yes --only-show-errors",
+      ])
+    )
   }
 
   depends_on = [
