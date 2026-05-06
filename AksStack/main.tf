@@ -61,6 +61,10 @@ data "azurerm_resource_group" "existing" {
 locals {
   effective_rg_name = var.create_resource_group ? module.rg[0].name : var.resource_group_name
   effective_rg_id   = var.create_resource_group ? module.rg[0].id : data.azurerm_resource_group.existing[0].id
+
+  # Optional dedicated RG for KV + KV PE + KV Key (separation of duties).
+  # When null, falls back to the cluster RG (single-RG mode).
+  effective_kv_rg_name = var.kv_resource_group_name != null ? var.kv_resource_group_name : local.effective_rg_name
 }
 
 ###############################################################
@@ -114,7 +118,7 @@ module "kv" {
   # not exposed by KeyVault module — caller must shorten workload
   # if the computed name exceeds 24 chars.
   location            = var.location
-  resource_group_name = local.effective_rg_name
+  resource_group_name = local.effective_kv_rg_name
   tenant_id           = var.tenant_id
 
   sku_name                      = var.kv_sku_name
@@ -151,7 +155,7 @@ module "kv_pe" {
   source = "git::https://github.com/John6810/terraform-azurerm-modules.git//PrivateEndpoint?ref=main"
 
   location            = var.location
-  resource_group_name = local.effective_rg_name
+  resource_group_name = local.effective_kv_rg_name
   subnet_id           = var.kv_pe_subnet_id
 
   private_endpoints = {

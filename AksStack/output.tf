@@ -5,13 +5,20 @@
 # so callers can `dependency.aks_stack.outputs.cluster_id` etc.
 ###############################################################
 
-# ─── Resource Group ──────────────────────────────────────────
+# ─── Resource Groups ─────────────────────────────────────────
 output "resource_group_id" {
-  value = local.effective_rg_id
+  description = "Cluster RG (UAMIs + AKS cluster)."
+  value       = local.effective_rg_id
 }
 
 output "resource_group_name" {
-  value = local.effective_rg_name
+  description = "Cluster RG name."
+  value       = local.effective_rg_name
+}
+
+output "kv_resource_group_name" {
+  description = "RG hosting the KV + KV PE + etcd CMK. Equal to resource_group_name when var.kv_resource_group_name is null (single-RG mode)."
+  value       = local.effective_kv_rg_name
 }
 
 # ─── Identities ──────────────────────────────────────────────

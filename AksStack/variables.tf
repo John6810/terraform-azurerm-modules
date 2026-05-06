@@ -130,6 +130,21 @@ variable "node_resource_group_name" {
   default     = null
 }
 
+variable "kv_resource_group_name" {
+  type        = string
+  description = <<-EOT
+  Optional separate resource group for the etcd CMK Key Vault, its Private
+  Endpoint and the etcd KV Key. Default null = same RG as the cluster.
+
+  Recommended in production: a dedicated RG with a CanNotDelete lock isolates
+  the cryptographic material from the compute lifecycle. Loss of the etcd CMK
+  KV permanently breaks the cluster (KMS v2 cannot decrypt etcd state), so
+  separating its lifecycle from the (more frequently destroyed) compute RG
+  is sound separation of duties + extra safeguard.
+  EOT
+  default     = null
+}
+
 ###############################################################
 # KEY VAULT (for etcd CMK + workload secrets)
 ###############################################################
