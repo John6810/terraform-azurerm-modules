@@ -24,6 +24,23 @@ resource "azurerm_role_assignment" "kubelet_kv_crypto_user" {
 }
 
 ###############################################################
+# RBAC #1b: CP UAMI → Managed Identity Operator on kubelet UAMI
+#
+# Required when control-plane and kubelet identities are separate
+# UAMIs (our pattern). The control plane needs this role to assign
+# the kubelet UAMI to VMSS instances at scale-out / upgrade time.
+#
+# Without this, AKS create fails with:
+#   CustomKubeletIdentityMissingPermissionError
+###############################################################
+resource "azurerm_role_assignment" "cp_kubelet_mi_operator" {
+  scope                = module.id_kubelet.id
+  role_definition_name = "Managed Identity Operator"
+  principal_id         = module.id_cp.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+###############################################################
 # RBAC #2: CP UAMI → Network Contributor on node subnet
 #
 # Required so AKS can create the load balancer NICs, attach the
