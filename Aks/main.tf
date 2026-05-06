@@ -243,50 +243,86 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 }
 
 ###############################################################
-# RESOURCE: Post-create PATCH — VNet Integration + KMS Private
+# RESOURCE: Post-create — VNet Integration + KMS Private (via az CLI)
 # ─────────────────────────────────────────────────────────────
 # azurerm v4 cannot create a cluster with api_server_access_profile
-# (VNet integration) or KMS with key_vault_network_access = "Private"
-# in a single PUT. Azure also forbids KMS Private without VNet integration
-# (400 BadRequest at create time when only KMS is set).
+# or KMS Private inline. azapi_update_resource was tried but doesn't
+# correctly persist apiServerAccessProfile (PUT body merge bug with AKS
+# managedClusters): the "update" reports success yet Azure shows
+# enableVnetIntegration = null afterwards.
 #
-# Solution: cluster is created without these, then a single combined
-# azapi_update_resource PATCHes both properties atomically. Two separate
-# PATCHes race (Azure rejects the KMS PATCH because apiServerAccessProfile
-# isn't fully settled by then), so we send one body containing both.
+# Pragmatic workaround: null_resource + local-exec calling `az aks update`,
+# which the AKS team supports as the canonical way to flip these flags.
+# Two sequential commands so Azure validates the apiServerAccessProfile
+# state before KMS Private is attached. Idempotent via `triggers`.
 #
-# `lifecycle ignore_changes [api_server_access_profile, key_management_service]`
-# on the azurerm_kubernetes_cluster keeps the two providers from fighting.
+# Requires az CLI on the Terraform runner. `lifecycle ignore_changes`
+# on the cluster keeps azurerm from fighting the post-create state.
 ###############################################################
-resource "azapi_update_resource" "post_create" {
+resource "null_resource" "enable_vnet_integration" {
   count = var.api_server_subnet_id != null ? 1 : 0
 
-  type        = "Microsoft.ContainerService/managedClusters@2024-09-01"
-  resource_id = azurerm_kubernetes_cluster.this.id
+  triggers = {
+    cluster_id = azurerm_kubernetes_cluster.this.id
+    subnet_id  = var.api_server_subnet_id
+  }
 
-  body = {
-    properties = merge(
-      {
-        apiServerAccessProfile = {
-          enableVnetIntegration = true
-          subnetId              = var.api_server_subnet_id
-        }
-      },
-      var.kms_key_id != null ? {
-        securityProfile = {
-          azureKeyVaultKms = {
-            enabled               = true
-            keyId                 = var.kms_key_id
-            keyVaultNetworkAccess = "Private"
-            keyVaultResourceId    = var.kms_key_vault_id
-          }
-        }
-      } : {}
-    )
+  provisioner "local-exec" {
+    command = join(" ", [
+      "az aks update",
+      "--name ${azurerm_kubernetes_cluster.this.name}",
+      "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
+      "--subscription ${data.azurerm_client_config.current.subscription_id}",
+      "--enable-apiserver-vnet-integration",
+      "--apiserver-subnet-id ${var.api_server_subnet_id}",
+      "--yes",
+      "--only-show-errors",
+    ])
   }
 
   depends_on = [
     azurerm_kubernetes_cluster.this,
     azurerm_kubernetes_cluster_node_pool.this,
+  ]
+}
+
+# Brief settle window — Azure may still be propagating apiServerAccessProfile
+# state when the KMS update fires, even after `az aks update` returns.
+resource "time_sleep" "wait_for_vnet_integration" {
+  count           = var.api_server_subnet_id != null && var.kms_key_id != null ? 1 : 0
+  depends_on      = [null_resource.enable_vnet_integration]
+  create_duration = "30s"
+
+  triggers = {
+    vnet_integration_id = null_resource.enable_vnet_integration[0].id
+  }
+}
+
+resource "null_resource" "enable_kms" {
+  count = var.kms_key_id != null && var.api_server_subnet_id != null ? 1 : 0
+
+  triggers = {
+    cluster_id   = azurerm_kubernetes_cluster.this.id
+    key_id       = var.kms_key_id
+    key_vault_id = var.kms_key_vault_id
+  }
+
+  provisioner "local-exec" {
+    command = join(" ", [
+      "az aks update",
+      "--name ${azurerm_kubernetes_cluster.this.name}",
+      "--resource-group ${azurerm_kubernetes_cluster.this.resource_group_name}",
+      "--subscription ${data.azurerm_client_config.current.subscription_id}",
+      "--enable-azure-keyvault-kms",
+      "--azure-keyvault-kms-key-id ${var.kms_key_id}",
+      "--azure-keyvault-kms-key-vault-network-access Private",
+      "--azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id}",
+      "--yes",
+      "--only-show-errors",
+    ])
+  }
+
+  depends_on = [
+    time_sleep.wait_for_vnet_integration,
   ]
 }
