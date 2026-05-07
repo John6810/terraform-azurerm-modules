@@ -404,12 +404,17 @@ resource "null_resource" "enable_kms" {
         az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "az login failed (exit $LASTEXITCODE)" }
 
-        # Skip if KMS already enabled with the same key (idempotent).
+        # Idempotency: skip the update only when BOTH conditions are true:
+        #   - KMS is already enabled in the cluster config
+        #   - Cluster is in a healthy provisioningState (Succeeded)
+        # If the cluster is in Failed (e.g. a previous KMS attempt left
+        # partial state due to RBAC issues), re-run the update to recover.
         $currentKms = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "securityProfile.azureKeyVaultKms.enabled" -o tsv 2>$null
-        if ($currentKms -eq "true") {
-          Write-Host "KMS Private already enabled — skipping az aks update."
+        $currentProvState = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "provisioningState" -o tsv 2>$null
+        if ($currentKms -eq "true" -and $currentProvState -eq "Succeeded") {
+          Write-Host "KMS Private already enabled and cluster healthy — skipping az aks update."
         } else {
-          Write-Host "Enabling KMS Private etcd encryption (~3-5 min)..."
+          Write-Host "Enabling/Recovering KMS Private etcd encryption (current KMS=$currentKms, state=$currentProvState, ~3-5 min)..."
           az aks update --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --enable-azure-keyvault-kms --azure-keyvault-kms-key-id ${var.kms_key_id} --azure-keyvault-kms-key-vault-network-access Private --azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id} --yes --output none
         }
 
