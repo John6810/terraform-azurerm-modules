@@ -308,6 +308,7 @@ module "aks" {
   keda_enabled                    = var.keda_enabled
   image_cleaner_enabled           = var.image_cleaner_enabled
   image_cleaner_interval_hours    = var.image_cleaner_interval_hours
+  cost_analysis_enabled           = var.cost_analysis_enabled
 
   # Maintenance
   maintenance_window = var.maintenance_window

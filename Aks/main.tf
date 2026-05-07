@@ -135,6 +135,11 @@ resource "azurerm_kubernetes_cluster" "this" {
   image_cleaner_enabled        = var.image_cleaner_enabled
   image_cleaner_interval_hours = var.image_cleaner_enabled ? var.image_cleaner_interval_hours : null
 
+  # ─── Cost Analysis ──────────────────────────────────────
+  # Namespace-level cost breakdown in Azure Portal. Free, opt-in.
+  # Requires sku_tier in ("Standard", "Premium") — Free is rejected by ARM.
+  cost_analysis_enabled = var.cost_analysis_enabled
+
   # ─── Maintenance Window ─────────────────────────────────
   dynamic "maintenance_window" {
     for_each = var.maintenance_window != null ? [var.maintenance_window] : []

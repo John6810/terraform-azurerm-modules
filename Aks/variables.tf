@@ -452,6 +452,16 @@ variable "image_cleaner_interval_hours" {
   default     = 48
 }
 
+variable "cost_analysis_enabled" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+  Enable AKS Cost Analysis (namespace-level cost breakdown in the Azure
+  Portal). Free, opt-in. Requires sku_tier = "Standard" or "Premium" —
+  Azure rejects the apply if sku_tier = "Free".
+  EOT
+}
+
 variable "node_os_upgrade_channel" {
   type        = string
   description = "Node OS upgrade channel: Unmanaged, SecurityPatch, NodeImage, None"

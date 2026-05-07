@@ -493,6 +493,16 @@ variable "image_cleaner_interval_hours" {
   default = 48
 }
 
+variable "cost_analysis_enabled" {
+  type        = bool
+  default     = false
+  description = <<-EOT
+  Enable AKS Cost Analysis (namespace-level cost breakdown in the Azure
+  Portal). Free, opt-in. Requires sku_tier in ("Standard", "Premium") —
+  rejected when sku_tier = "Free".
+  EOT
+}
+
 variable "enable_container_insights" {
   type        = bool
   description = "Enable Container Insights via the OmsAgent addon. Note: ALZ DINE policy may auto-create the addon — set false here if your platform delegates this to Policy."
