@@ -18,11 +18,22 @@ resource "time_static" "time" {}
 # Example:    rg-shc-nprd-gwc-network
 ###############################################################
 locals {
-  prefix = "${var.subscription_acronym}-${var.environment}-${var.region_code}"
+  # Per-RG region_code override falls back to the set-level value.
+  # Allows mixing regions in one set (e.g. GWC RGs alongside WEU RGs for
+  # workloads with control planes hosted in a different region).
+  effective_region_codes = {
+    for k, rg in var.resource_groups :
+    k => coalesce(rg.region_code, var.region_code)
+  }
+
+  effective_locations = {
+    for k, rg in var.resource_groups :
+    k => coalesce(rg.location, var.location)
+  }
 
   computed_names = {
     for k, rg in var.resource_groups :
-    k => rg.name != null ? rg.name : "rg-${local.prefix}-${rg.workload}"
+    k => rg.name != null ? rg.name : "rg-${var.subscription_acronym}-${var.environment}-${local.effective_region_codes[k]}-${rg.workload}"
   }
 
   common_tags = merge(
@@ -51,7 +62,7 @@ resource "azurerm_resource_group" "this" {
   for_each = var.resource_groups
 
   name     = local.computed_names[each.key]
-  location = var.location
+  location = local.effective_locations[each.key]
 
   tags = merge(local.common_tags, each.value.tags)
 }

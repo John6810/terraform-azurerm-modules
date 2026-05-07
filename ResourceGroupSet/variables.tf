@@ -57,15 +57,23 @@ variable "resource_groups" {
   Per-entry fields:
   - `workload`         - (Required) Workload name. Final RG name = rg-{acr}-{env}-{region}-{workload}
   - `name`             - (Optional) Explicit RG name override. If null, computed from naming.
+  - `location`         - (Optional) Override the set-level location for this specific RG. Useful when most
+                         RGs sit in one region but a few must be elsewhere (e.g. AVD control plane forced
+                         to westeurope while session hosts and storage stay in germanywestcentral).
+  - `region_code`      - (Optional) Override the set-level region_code in the computed name. Should be
+                         set together with `location` to keep the name aligned with the actual region
+                         (e.g. location="westeurope" + region_code="weu").
   - `tags`             - (Optional) Per-RG tags. Merged on top of the set-level `tags`.
   - `lock`             - (Optional) Management lock. { kind = "CanNotDelete"|"ReadOnly", name = optional(string) }
   - `role_assignments` - (Optional) Map of role assignments scoped to this RG.
   EOT
 
   type = map(object({
-    workload = string
-    name     = optional(string)
-    tags     = optional(map(string), {})
+    workload    = string
+    name        = optional(string)
+    location    = optional(string)
+    region_code = optional(string)
+    tags        = optional(map(string), {})
     lock = optional(object({
       kind = string
       name = optional(string)
@@ -98,6 +106,14 @@ variable "resource_groups" {
       rg.name == null || can(regex("^[a-zA-Z0-9_().-]{1,89}[a-zA-Z0-9_()-]$", rg.name))
     ])
     error_message = "Each resource_groups[*].name override must match Azure RG naming rules (1-90 chars, alphanumerics/underscores/parentheses/hyphens/periods, not ending in period)."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, rg in var.resource_groups :
+      rg.region_code == null || can(regex("^[a-z]{2,5}$", rg.region_code))
+    ])
+    error_message = "Each resource_groups[*].region_code override must be 2 to 5 lowercase letters (matching the set-level region_code format)."
   }
 
   validation {
