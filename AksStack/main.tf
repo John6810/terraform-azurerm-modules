@@ -327,6 +327,9 @@ module "aks" {
   #   (joinLoadBalancer/action on the apiserver subnet, see rbac.tf)
   # - cp_kubelet_mi_operator: required for AKS to assign the kubelet UAMI to
   #   VMSS instances (CustomKubeletIdentityMissingPermissionError otherwise)
+  # - cp_kv_contributor: required for AKS to approve its auto-created PE
+  #   connection on the KV when KMS Private fires (LinkedAuthorizationFailed
+  #   on PrivateEndpointConnectionsApproval/action otherwise)
   # - module.kv_pe: PE on the etcd CMK KV (network path)
   # - time_sleep.wait_for_dine_dns: ALZ DINE Policy DNS group propagation
   #   delay — the AKS create call resolves the KV via privatelink.vaultcore
@@ -336,6 +339,7 @@ module "aks" {
     azurerm_role_assignment.cp_subnet_network_contrib,
     azurerm_role_assignment.cp_apiserver_subnet_network_contrib,
     azurerm_role_assignment.cp_kubelet_mi_operator,
+    azurerm_role_assignment.cp_kv_contributor,
     module.kv_pe,
     time_sleep.wait_for_dine_dns,
   ]

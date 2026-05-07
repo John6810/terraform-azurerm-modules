@@ -413,10 +413,14 @@ resource "null_resource" "enable_kms" {
           az aks update --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --enable-azure-keyvault-kms --azure-keyvault-kms-key-id ${var.kms_key_id} --azure-keyvault-kms-key-vault-network-access Private --azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id} --yes --output none
         }
 
-        # Verify state actually changed.
+        # Verify state actually changed AND cluster is not in Failed state.
+        # KMS config can be partially applied (enabled=true) while the broader
+        # operation fails (provisioningState=Failed) — we want both to be OK.
         $verified = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "securityProfile.azureKeyVaultKms.enabled" -o tsv
         if ($verified -ne "true") { throw "KMS Private state verification failed (got: '$verified')" }
-        Write-Host "KMS Private etcd encryption confirmed enabled."
+        $provState = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "provisioningState" -o tsv
+        if ($provState -eq "Failed") { throw "Cluster is in provisioningState=Failed after KMS update — likely a missing RBAC. Check Azure activity log for the underlying error." }
+        Write-Host "KMS Private etcd encryption confirmed enabled (provisioningState: $provState)."
       } finally {
         Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
       }
