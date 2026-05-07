@@ -160,7 +160,7 @@ resource "azurerm_kubernetes_cluster" "this" {
       kubernetes_version,
       default_node_pool[0].node_count,
       # api_server_access_profile and key_management_service are managed
-      # outside Terraform via az aks update (azurerm v4 limitation)
+      # via azapi_update_resource post-create (azurerm v4 limitation)
       api_server_access_profile,
       key_management_service,
       # ALZ policies deploy oms_agent and modify microsoft_defender casing
@@ -243,71 +243,35 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 }
 
 ###############################################################
-# RESOURCE: Post-create — VNet Integration + KMS Private (via az CLI)
+# RESOURCE: Bootstrap — VNet Integration + KMS Private (via azapi)
 # ─────────────────────────────────────────────────────────────
-# azurerm v4 cannot create a cluster with api_server_access_profile
-# or KMS Private inline. azapi_update_resource doesn't correctly
-# persist apiServerAccessProfile (PUT body merge bug with AKS
-# managedClusters): reports success yet Azure shows enableVnetIntegration
-# = null afterwards.
+# azurerm v4 cannot create a cluster with apiServerAccessProfile
+# or KMS Private inline. We use azapi_update_resource to PATCH
+# these properties post-create — native Terraform, idempotent,
+# OIDC-compatible (no SP secret env vars required).
 #
-# Workaround: null_resource + local-exec calling `az aks update`. The
-# provisioner authenticates az CLI as the same SPN that Terraform uses
-# (via ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID env vars), in
-# an isolated AZURE_CONFIG_DIR so it doesn't pollute the user's az login
-# session. Cleaned up after each call.
+# Order:
+#   1. cluster created without VNet integration / KMS
+#   2. azapi enables VNet integration
+#   3. cluster restart (az aks stop+start) — only one operation
+#      that ARM exposes as POST action, kept in null_resource
+#   4. azapi enables KMS Private etcd encryption
 #
-# Pre-requisites on the Terraform runner:
-#   - PowerShell 7+ (`pwsh`) available on PATH
-#   - `az` CLI installed
-#   - Terraform authenticated via SPN secret (ARM_CLIENT_ID, ARM_CLIENT_SECRET,
-#     ARM_TENANT_ID set in env). This is the standard Azure DevOps pipeline
-#     setup; for cert / OIDC / managed identity, the script needs adaptation.
+# All 3 steps are skipped when the corresponding inputs are null.
 ###############################################################
-resource "null_resource" "enable_vnet_integration" {
-  count = var.api_server_subnet_id != null ? 1 : 0
 
-  triggers = {
-    cluster_id = azurerm_kubernetes_cluster.this.id
-    subnet_id  = var.api_server_subnet_id
-  }
+resource "azapi_update_resource" "enable_vnet_integration" {
+  count       = var.api_server_subnet_id != null ? 1 : 0
+  type        = "Microsoft.ContainerService/managedClusters@2024-09-01"
+  resource_id = azurerm_kubernetes_cluster.this.id
 
-  # az aks update sometimes exits non-zero even on success (CLI quirk with
-  # LRO + --enable-apiserver-vnet-integration), so we don't trust the exit
-  # code. Instead, we verify the actual cluster state via `az aks show`
-  # after the update. Idempotent: re-running on an already-VNet-integrated
-  # cluster is a no-op and re-verifies state.
-  provisioner "local-exec" {
-    interpreter = ["powershell", "-NoProfile", "-Command"]
-    command = <<-EOT
-      $ErrorActionPreference = "Stop"
-      if (-not $env:ARM_CLIENT_ID -or -not $env:ARM_CLIENT_SECRET -or -not $env:ARM_TENANT_ID) {
-        throw "ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID must be set."
+  body = {
+    properties = {
+      apiServerAccessProfile = {
+        enableVnetIntegration = true
+        subnetId              = var.api_server_subnet_id
       }
-      $azDir = Join-Path ([System.IO.Path]::GetTempPath()) ("az-tf-" + [System.Guid]::NewGuid().ToString())
-      $env:AZURE_CONFIG_DIR = $azDir
-      try {
-        az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "az login failed (exit $LASTEXITCODE)" }
-
-        # Skip the update if VNet integration is already enabled (idempotent).
-        $current = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "apiServerAccessProfile.enableVnetIntegration" -o tsv 2>$null
-        if ($current -eq "true") {
-          Write-Host "VNet integration already enabled — skipping az aks update."
-        } else {
-          Write-Host "Enabling API Server VNet Integration (~3-5 min, may also trigger node-image rolling upgrade)..."
-          az aks update --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --enable-apiserver-vnet-integration --apiserver-subnet-id ${var.api_server_subnet_id} --yes --output none
-          # Don't trust $LASTEXITCODE — verify actual state below.
-        }
-
-        # Verify the state actually changed (resilient to flaky exit codes).
-        $verified = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "apiServerAccessProfile.enableVnetIntegration" -o tsv
-        if ($verified -ne "true") { throw "VNet integration state verification failed (got: '$verified', expected 'true')" }
-        Write-Host "VNet integration confirmed enabled."
-      } finally {
-        Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
-      }
-    EOT
+    }
   }
 
   depends_on = [
@@ -319,20 +283,23 @@ resource "null_resource" "enable_vnet_integration" {
 # Cluster restart required by Azure after enabling VNet integration.
 # Per MS docs (https://learn.microsoft.com/azure/aks/api-server-vnet-integration):
 #
-#   "Manual restart required. After enabling API Server VNet Integration
-#    using `az aks update --enable-apiserver-vnet-integration`, due to
-#    control plane resource transition, you must immediately restart the
-#    cluster for the change to take effect. This restart is not automated.
-#    Delaying the restart increases the risk of capacity becoming
-#    unavailable, which can prevent the API server from starting."
+#   "Manual restart required. After enabling API Server VNet Integration,
+#    due to control plane resource transition, you must immediately restart
+#    the cluster for the change to take effect. This restart is not automated.
+#    Delaying the restart increases the risk of capacity becoming unavailable."
 #
-# Implemented as az aks stop + az aks start. ~10-15 min total. Skipped
-# entirely when api_server_subnet_id is null.
+# stop/start are POST actions on the ARM resource (not PATCH semantics) so
+# azapi_update_resource is not the right fit — kept as null_resource.
+# Pre-requisites on the Terraform runner:
+#   - `az` CLI installed
+#   - PowerShell 7+ on PATH (interpreter = powershell)
+#   - ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID env vars
+#     (or alternatively wrap with `az login --identity` / OIDC)
 resource "null_resource" "restart_after_vnet_integration" {
   count = var.api_server_subnet_id != null ? 1 : 0
 
   triggers = {
-    vnet_integration_id = null_resource.enable_vnet_integration[0].id
+    vnet_integration_id = azapi_update_resource.enable_vnet_integration[0].id
   }
 
   provisioner "local-exec" {
@@ -366,73 +333,29 @@ resource "null_resource" "restart_after_vnet_integration" {
   }
 
   depends_on = [
-    null_resource.enable_vnet_integration,
+    azapi_update_resource.enable_vnet_integration,
   ]
 }
 
-# Brief settle window after restart — give the API server time to fully
-# stabilize on its new VNet-integrated endpoint before KMS attaches.
-resource "time_sleep" "wait_for_vnet_integration" {
-  count           = var.api_server_subnet_id != null && var.kms_key_id != null ? 1 : 0
-  depends_on      = [null_resource.restart_after_vnet_integration]
-  create_duration = "60s"
+resource "azapi_update_resource" "enable_kms" {
+  count       = var.kms_key_id != null && var.api_server_subnet_id != null ? 1 : 0
+  type        = "Microsoft.ContainerService/managedClusters@2024-09-01"
+  resource_id = azurerm_kubernetes_cluster.this.id
 
-  triggers = {
-    restart_id = null_resource.restart_after_vnet_integration[0].id
-  }
-}
-
-resource "null_resource" "enable_kms" {
-  count = var.kms_key_id != null && var.api_server_subnet_id != null ? 1 : 0
-
-  triggers = {
-    cluster_id   = azurerm_kubernetes_cluster.this.id
-    key_id       = var.kms_key_id
-    key_vault_id = var.kms_key_vault_id
-  }
-
-  provisioner "local-exec" {
-    interpreter = ["powershell", "-NoProfile", "-Command"]
-    command = <<-EOT
-      $ErrorActionPreference = "Stop"
-      if (-not $env:ARM_CLIENT_ID -or -not $env:ARM_CLIENT_SECRET -or -not $env:ARM_TENANT_ID) {
-        throw "ARM_CLIENT_ID / ARM_CLIENT_SECRET / ARM_TENANT_ID must be set."
-      }
-      $azDir = Join-Path ([System.IO.Path]::GetTempPath()) ("az-tf-" + [System.Guid]::NewGuid().ToString())
-      $env:AZURE_CONFIG_DIR = $azDir
-      try {
-        az login --service-principal --username $env:ARM_CLIENT_ID --password $env:ARM_CLIENT_SECRET --tenant $env:ARM_TENANT_ID --only-show-errors | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "az login failed (exit $LASTEXITCODE)" }
-
-        # Idempotency: skip the update only when BOTH conditions are true:
-        #   - KMS is already enabled in the cluster config
-        #   - Cluster is in a healthy provisioningState (Succeeded)
-        # If the cluster is in Failed (e.g. a previous KMS attempt left
-        # partial state due to RBAC issues), re-run the update to recover.
-        $currentKms = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "securityProfile.azureKeyVaultKms.enabled" -o tsv 2>$null
-        $currentProvState = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "provisioningState" -o tsv 2>$null
-        if ($currentKms -eq "true" -and $currentProvState -eq "Succeeded") {
-          Write-Host "KMS Private already enabled and cluster healthy — skipping az aks update."
-        } else {
-          Write-Host "Enabling/Recovering KMS Private etcd encryption (current KMS=$currentKms, state=$currentProvState, ~3-5 min)..."
-          az aks update --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --enable-azure-keyvault-kms --azure-keyvault-kms-key-id ${var.kms_key_id} --azure-keyvault-kms-key-vault-network-access Private --azure-keyvault-kms-key-vault-resource-id ${var.kms_key_vault_id} --yes --output none
+  body = {
+    properties = {
+      securityProfile = {
+        azureKeyVaultKms = {
+          enabled               = true
+          keyId                 = var.kms_key_id
+          keyVaultNetworkAccess = "Private"
+          keyVaultResourceId    = var.kms_key_vault_id
         }
-
-        # Verify state actually changed AND cluster is not in Failed state.
-        # KMS config can be partially applied (enabled=true) while the broader
-        # operation fails (provisioningState=Failed) — we want both to be OK.
-        $verified = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "securityProfile.azureKeyVaultKms.enabled" -o tsv
-        if ($verified -ne "true") { throw "KMS Private state verification failed (got: '$verified')" }
-        $provState = az aks show --name ${azurerm_kubernetes_cluster.this.name} --resource-group ${azurerm_kubernetes_cluster.this.resource_group_name} --subscription ${data.azurerm_client_config.current.subscription_id} --query "provisioningState" -o tsv
-        if ($provState -eq "Failed") { throw "Cluster is in provisioningState=Failed after KMS update — likely a missing RBAC. Check Azure activity log for the underlying error." }
-        Write-Host "KMS Private etcd encryption confirmed enabled (provisioningState: $provState)."
-      } finally {
-        Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
       }
-    EOT
+    }
   }
 
   depends_on = [
-    time_sleep.wait_for_vnet_integration,
+    null_resource.restart_after_vnet_integration,
   ]
 }
