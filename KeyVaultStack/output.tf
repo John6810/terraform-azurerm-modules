@@ -6,13 +6,13 @@
 # Resource Group
 ###############################################################
 output "resource_group_name" {
-  description = "The name of the resource group"
-  value       = azurerm_resource_group.this.name
+  description = "The name of the resource group (created or existing)."
+  value       = local.effective_rg_name
 }
 
 output "resource_group_id" {
-  description = "The ID of the resource group"
-  value       = azurerm_resource_group.this.id
+  description = "The ID of the resource group (created or existing)."
+  value       = local.effective_rg_id
 }
 
 ###############################################################

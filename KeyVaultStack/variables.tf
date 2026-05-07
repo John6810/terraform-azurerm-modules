@@ -67,6 +67,31 @@ variable "subnet_id" {
 }
 
 ###############################################################
+# RESOURCE GROUP OWNERSHIP
+###############################################################
+variable "create_resource_group" {
+  type        = bool
+  description = "When true (default), the module creates and owns its RG (rg-{prefix}-{workload}) plus optional lock and role assignments. When false, the RG must be provided via resource_group_name (e.g. from a ResourceGroupSet) — the module skips RG creation, RG-level lock, and RG-level role_assignments (those become the consumer's responsibility)."
+  default     = true
+}
+
+variable "resource_group_name" {
+  type        = string
+  description = "Existing RG name to deploy into when create_resource_group=false. Ignored when create_resource_group=true (RG name is computed from naming convention)."
+  default     = null
+
+  validation {
+    condition     = var.resource_group_name == null || can(regex("^[a-zA-Z0-9_().-]{1,89}[a-zA-Z0-9_()-]$", var.resource_group_name))
+    error_message = "resource_group_name must match Azure RG naming rules (1-90 chars, alphanumerics/underscores/parentheses/hyphens/periods, not ending in period)."
+  }
+
+  validation {
+    condition     = var.create_resource_group == true || var.resource_group_name != null
+    error_message = "resource_group_name is required when create_resource_group=false."
+  }
+}
+
+###############################################################
 # NAMING OVERRIDES
 ###############################################################
 variable "kv_suffix" {

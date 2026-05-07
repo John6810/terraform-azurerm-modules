@@ -17,9 +17,13 @@ locals {
 
   kv_suffix = var.kv_suffix != null ? var.kv_suffix : var.workload
 
-  rg_name = "rg-${local.prefix}-${var.workload}"
-  kv_name = var.kv_name != null ? var.kv_name : "kv-${local.prefix}-${local.kv_suffix}"
-  pe_name = "pep-${local.prefix}-kv-${local.kv_suffix}"
+  computed_rg_name = "rg-${local.prefix}-${var.workload}"
+  kv_name          = var.kv_name != null ? var.kv_name : "kv-${local.prefix}-${local.kv_suffix}"
+  pe_name          = "pep-${local.prefix}-kv-${local.kv_suffix}"
+
+  # Either created here, or provided by an external owner (ResourceGroupSet, …).
+  effective_rg_name = var.create_resource_group ? azurerm_resource_group.this[0].name : var.resource_group_name
+  effective_rg_id   = var.create_resource_group ? azurerm_resource_group.this[0].id : data.azurerm_resource_group.existing[0].id
 
   role_definition_resource_substring = "/providers/Microsoft.Authorization/roleDefinitions"
 
@@ -32,33 +36,46 @@ locals {
 }
 
 ###############################################################
-# RESOURCE: Resource Group
+# DATA: Existing RG when not creating one
+###############################################################
+data "azurerm_resource_group" "existing" {
+  count = var.create_resource_group ? 0 : 1
+  name  = var.resource_group_name
+}
+
+###############################################################
+# RESOURCE: Resource Group (only when create_resource_group=true)
 ###############################################################
 resource "azurerm_resource_group" "this" {
-  name     = local.rg_name
+  count = var.create_resource_group ? 1 : 0
+
+  name     = local.computed_rg_name
   location = var.location
   tags     = local.common_tags
 }
 
 ###############################################################
 # RESOURCE: Resource Group — Management Lock
+# Only created when this module owns the RG. When the RG comes
+# from a ResourceGroupSet, the lock is the set owner's responsibility.
 ###############################################################
 resource "azurerm_management_lock" "this" {
-  count = var.lock != null ? 1 : 0
+  count = var.create_resource_group && var.lock != null ? 1 : 0
 
   lock_level = var.lock.kind
   name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
-  scope      = azurerm_resource_group.this.id
+  scope      = azurerm_resource_group.this[0].id
   notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
 }
 
 ###############################################################
 # RESOURCE: Resource Group — Role Assignments
+# Same scoping rule as the lock — only when this module owns the RG.
 ###############################################################
 resource "azurerm_role_assignment" "rg" {
-  for_each = var.role_assignments
+  for_each = var.create_resource_group ? var.role_assignments : {}
 
-  scope                                  = azurerm_resource_group.this.id
+  scope                                  = azurerm_resource_group.this[0].id
   principal_id                           = each.value.principal_id
   principal_type                         = each.value.principal_type
   role_definition_id                     = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
@@ -76,7 +93,7 @@ resource "azurerm_role_assignment" "rg" {
 resource "azurerm_key_vault" "this" {
   name                = local.kv_name
   location            = var.location
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = local.effective_rg_name
   tenant_id           = coalesce(var.tenant_id, data.azurerm_client_config.current.tenant_id)
   sku_name            = var.sku_name
 
@@ -130,7 +147,7 @@ resource "azurerm_role_assignment" "kv_admin" {
 resource "azurerm_private_endpoint" "this" {
   name                = local.pe_name
   location            = var.location
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = local.effective_rg_name
   subnet_id           = var.subnet_id
 
   custom_network_interface_name = var.pe_custom_network_interface_name
@@ -179,7 +196,7 @@ resource "azurerm_private_endpoint" "this" {
 ###############################################################
 data "azurerm_private_endpoint_connection" "this" {
   name                = azurerm_private_endpoint.this.name
-  resource_group_name = azurerm_resource_group.this.name
+  resource_group_name = local.effective_rg_name
 
   depends_on = [azurerm_private_endpoint.this]
 }
