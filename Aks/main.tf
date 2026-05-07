@@ -322,6 +322,12 @@ resource "null_resource" "enable_vnet_integration" {
       } finally {
         Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
       }
+      # PowerShell propagates $LASTEXITCODE from the last native command.
+      # `az aks update` can exit non-zero on success (LRO + warnings quirks).
+      # Force a clean exit since our state verification above already
+      # confirmed the operation took effect.
+      $global:LASTEXITCODE = 0
+      exit 0
     EOT
   }
 
@@ -380,6 +386,9 @@ resource "null_resource" "restart_after_vnet_integration" {
       } finally {
         Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
       }
+      # Force clean exit (az can leave $LASTEXITCODE non-zero despite success).
+      $global:LASTEXITCODE = 0
+      exit 0
     EOT
   }
 
@@ -432,6 +441,9 @@ resource "null_resource" "enable_kms" {
       } finally {
         Remove-Item -Recurse -Force $azDir -ErrorAction SilentlyContinue
       }
+      # Force clean exit (az can leave $LASTEXITCODE non-zero despite success).
+      $global:LASTEXITCODE = 0
+      exit 0
     EOT
   }
 
