@@ -41,6 +41,34 @@ resource "azurerm_role_assignment" "cp_kubelet_mi_operator" {
 }
 
 ###############################################################
+# RBAC #1c: CP UAMI → Key Vault Contributor on the etcd KV
+#
+# Required when KMS Private is enabled. AKS creates an AKS-managed
+# Private Endpoint in the AKS-managed node RG that connects to the
+# KV's private link service. The CP UAMI initiates this connection
+# and needs Microsoft.KeyVault/vaults/PrivateEndpointConnectionsApproval/action
+# on the KV to approve the PE connection from the AKS side.
+#
+# Without this, az aks update --enable-azure-keyvault-kms fails with:
+#   LinkedAuthorizationFailed: ... PrivateEndpointConnectionsApproval/action
+# and the cluster lands in provisioningState=Failed even though the
+# KMS config is partially applied.
+#
+# Built-in role chosen: "Key Vault Contributor" (includes the action;
+# scoped to the KV resource only — minimal blast radius). A custom role
+# with just PrivateEndpointConnectionsApproval/action would be tighter
+# but adds management overhead — refactor opportunity for Sprint 9.
+###############################################################
+resource "azurerm_role_assignment" "cp_kv_contributor" {
+  count = var.kms_v2_enabled ? 1 : 0
+
+  scope                = module.kv.id
+  role_definition_name = "Key Vault Contributor"
+  principal_id         = module.id_cp.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+###############################################################
 # RBAC #2: CP UAMI → Network Contributor on node subnet
 #
 # Required so AKS can create the load balancer NICs, attach the
