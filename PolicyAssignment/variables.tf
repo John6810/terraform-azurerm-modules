@@ -31,6 +31,21 @@ variable "assignments" {
       content                        = string
       policy_definition_reference_id = optional(string)
     })), [])
+
+    # ─── Role assignments for the assignment's identity (DINE/Modify) ────
+    # Required when the policy/initiative needs to deploy or modify
+    # resources outside its own scope (e.g. write to a central storage
+    # account, attach flow logs on VNets). Each entry creates an
+    # azurerm_role_assignment with principal_id = this assignment's
+    # SystemAssigned identity.
+    #
+    # Specify exactly ONE of role_definition_name (built-in role) or
+    # role_definition_id (custom role definition GUID).
+    role_assignments = optional(list(object({
+      scope                = string                          # full Azure resource ID at which to grant the role
+      role_definition_name = optional(string)                # built-in role display name (e.g. "Contributor")
+      role_definition_id   = optional(string)                # GUID for built-in or custom roles
+    })), [])
   }))
   description = <<-EOT
   Map of policy assignments. Key = assignment name (must be unique within scope, max 24 chars).
