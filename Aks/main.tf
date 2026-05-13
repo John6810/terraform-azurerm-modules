@@ -114,6 +114,19 @@ resource "azurerm_kubernetes_cluster" "this" {
   # ─── Managed Prometheus (ama-metrics agent) ───────────────
   monitor_metrics {}
 
+  # ─── Container Insights (ama-logs agent) — modern MSI auth ───
+  # Pattern aligned with MS Learn (kubernetes-monitoring-enable.md,
+  # updated 2026-04-17, "Terraform" tab). `msi_auth_for_monitoring_enabled`
+  # opts the addon into Azure Monitor Agent (AMA) under the hood — the
+  # legacy Log Analytics shared-key auth path is gone.
+  dynamic "oms_agent" {
+    for_each = var.enable_container_insights ? [1] : []
+    content {
+      log_analytics_workspace_id      = var.log_analytics_workspace_id
+      msi_auth_for_monitoring_enabled = true
+    }
+  }
+
   # ─── Workload Autoscaler Profile (VPA + KEDA) ──────────────
   # Enables the VPA addon (recommender, updater, admission-controller).
   # Per-workload mode (Off/Initial/Auto) configured via VerticalPodAutoscaler
@@ -168,9 +181,13 @@ resource "azurerm_kubernetes_cluster" "this" {
       # via azapi_update_resource post-create (azurerm v4 limitation)
       api_server_access_profile,
       key_management_service,
-      # ALZ policies deploy oms_agent and modify microsoft_defender casing
+      # ALZ policy was expected to modify microsoft_defender casing
+      # (the policy doesn't exist in our LZ as of 2026-05-13, but the
+      # ignore is kept defensively in case it gets assigned later).
+      # oms_agent is NO LONGER ignored — it is now an explicit, caller-
+      # gated block (see enable_container_insights variable). The
+      # previously assumed ALZ DINE for omsagent does not exist in this LZ.
       microsoft_defender,
-      oms_agent,
     ]
   }
 }

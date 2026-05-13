@@ -497,6 +497,26 @@ variable "log_analytics_workspace_id" {
   default     = null
 }
 
+variable "enable_container_insights" {
+  type        = bool
+  description = <<-EOT
+  Enable Container Insights via the oms_agent addon (installs the ama-logs
+  DaemonSet on every node). Uses MSI auth (`msi_auth_for_monitoring_enabled =
+  true`) — the modern Microsoft-recommended pattern for AKS Terraform
+  (https://learn.microsoft.com/en-us/azure/azure-monitor/containers/kubernetes-monitoring-enable,
+  "Terraform" tab, updated 2026-04-17).
+
+  When true, AKS auto-provisions a default DCR/DCRA pair tied to
+  `log_analytics_workspace_id`. Callers typically also deploy an explicit
+  ContainerInsightsCollector module for custom streams (ContainerLogV2,
+  KubeEvents, KubePodInventory, etc.) — those override/complement the
+  auto-created defaults.
+
+  Requires `log_analytics_workspace_id` to be set.
+  EOT
+  default     = false
+}
+
 ###############################################################
 # TAGS
 ###############################################################

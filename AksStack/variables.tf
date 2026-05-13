@@ -505,7 +505,19 @@ variable "cost_analysis_enabled" {
 
 variable "enable_container_insights" {
   type        = bool
-  description = "Enable Container Insights via the OmsAgent addon. Note: ALZ DINE policy may auto-create the addon — set false here if your platform delegates this to Policy."
+  description = <<-EOT
+  Enable Container Insights via the oms_agent addon (modern MSI-auth
+  variant, msi_auth_for_monitoring_enabled = true). Installs the
+  ama-logs DaemonSet on every node; AKS auto-creates a default DCR/DCRA
+  tied to var.log_analytics_workspace_id.
+
+  Pattern aligned with MS Learn Terraform docs
+  (https://learn.microsoft.com/en-us/azure/azure-monitor/containers/kubernetes-monitoring-enable).
+
+  Callers typically deploy a separate ContainerInsightsCollector module
+  in addition to this addon — that module installs an explicit DCR with
+  custom streams (ContainerLogV2 only, skip Perf, etc.).
+  EOT
   default     = true
 }
 

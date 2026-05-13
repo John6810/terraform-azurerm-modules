@@ -314,11 +314,13 @@ module "aks" {
   maintenance_window = var.maintenance_window
 
   # Monitoring
-  # Note: Container Insights (oms_agent addon) is delegated to ALZ DINE
-  # policy in the LZ — the Aks module does not expose an
-  # enable_container_insights toggle. var.enable_container_insights on
-  # AksStack is reserved for future use if/when ALZ delegation changes.
+  # Container Insights (ama-logs agent via oms_agent block, MSI auth).
+  # The expected ALZ DINE policy that would have auto-deployed this never
+  # materialised in our LZ — wired explicitly here. AKS auto-creates a
+  # default DCR/DCRA when the addon is enabled; callers typically also
+  # deploy a ContainerInsightsCollector module to add custom streams.
   log_analytics_workspace_id = var.log_analytics_workspace_id
+  enable_container_insights  = var.enable_container_insights
 
   tags = local.effective_tags
 
