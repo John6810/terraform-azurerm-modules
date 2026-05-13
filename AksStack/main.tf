@@ -322,6 +322,13 @@ module "aks" {
   log_analytics_workspace_id = var.log_analytics_workspace_id
   enable_container_insights  = var.enable_container_insights
 
+  # Secrets Store CSI Driver (azure-keyvault-secrets-provider addon).
+  # Apps consume KV secrets via SecretProviderClass + Workload Identity
+  # (per-pod), not the auto-created cluster-wide UAMI.
+  enable_secrets_store_csi_driver            = var.enable_secrets_store_csi_driver
+  secrets_store_csi_driver_rotation_enabled  = var.secrets_store_csi_driver_rotation_enabled
+  secrets_store_csi_driver_rotation_interval = var.secrets_store_csi_driver_rotation_interval
+
   tags = local.effective_tags
 
   # Sequenced creation order:

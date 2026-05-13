@@ -127,6 +127,23 @@ resource "azurerm_kubernetes_cluster" "this" {
     }
   }
 
+  # ─── Secrets Store CSI Driver (azure-keyvault-secrets-provider) ──
+  # Pattern aligned with MS Learn (csi-secrets-store-driver.md, "Terraform"
+  # tab, updated 2026-05-05). Enables the addon and installs the
+  # secrets-store-csi-driver + secrets-store-provider-azure DaemonSets.
+  #
+  # AKS auto-creates a UAMI `azurekeyvaultsecretsprovider-<cluster>` in
+  # the node RG (cannot opt out). RBAC on Key Vault NOT granted by this
+  # module — apps are expected to use Workload Identity per-pod, which
+  # the cluster supports via oidc_issuer_enabled + workload_identity_enabled.
+  dynamic "key_vault_secrets_provider" {
+    for_each = var.enable_secrets_store_csi_driver ? [1] : []
+    content {
+      secret_rotation_enabled  = var.secrets_store_csi_driver_rotation_enabled
+      secret_rotation_interval = var.secrets_store_csi_driver_rotation_interval
+    }
+  }
+
   # ─── Workload Autoscaler Profile (VPA + KEDA) ──────────────
   # Enables the VPA addon (recommender, updater, admission-controller).
   # Per-workload mode (Off/Initial/Auto) configured via VerticalPodAutoscaler

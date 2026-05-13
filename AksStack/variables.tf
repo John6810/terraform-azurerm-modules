@@ -521,6 +521,34 @@ variable "enable_container_insights" {
   default     = true
 }
 
+variable "enable_secrets_store_csi_driver" {
+  type        = bool
+  description = <<-EOT
+  Enable the Secrets Store CSI Driver addon (azure-keyvault-secrets-provider).
+  Pattern aligned with MS Learn Terraform docs
+  (https://learn.microsoft.com/azure/aks/csi-secrets-store-driver, updated
+  2026-05-05).
+
+  AKS auto-creates a UAMI in the node RG (`azurekeyvaultsecretsprovider-*`)
+  — cannot opt out. RBAC on Key Vault NOT granted by AksStack; apps are
+  expected to use Workload Identity per-pod (the cluster already has
+  oidc_issuer + workload_identity enabled).
+  EOT
+  default     = false
+}
+
+variable "secrets_store_csi_driver_rotation_enabled" {
+  type        = bool
+  description = "Enable Secrets Store CSI Driver auto-rotation. Default true (MS recommended)."
+  default     = true
+}
+
+variable "secrets_store_csi_driver_rotation_interval" {
+  type        = string
+  description = "Secret rotation polling interval. MS default 2m."
+  default     = "2m"
+}
+
 variable "maintenance_window" {
   description = "AKS upgrade maintenance window. day = day-of-week, hour_start/end in UTC."
   type = object({

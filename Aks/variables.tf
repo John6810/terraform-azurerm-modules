@@ -517,6 +517,39 @@ variable "enable_container_insights" {
   default     = false
 }
 
+variable "enable_secrets_store_csi_driver" {
+  type        = bool
+  description = <<-EOT
+  Enable the `azure-keyvault-secrets-provider` addon (Secrets Store CSI
+  Driver + Azure provider) on the cluster. Installs the
+  `secrets-store-csi-driver` + `secrets-store-provider-azure` DaemonSets
+  in `kube-system`.
+
+  Modern Microsoft Terraform pattern (csi-secrets-store-driver.md, updated
+  2026-05-05).
+
+  AKS auto-creates a UAMI named `azurekeyvaultsecretsprovider-<cluster>`
+  in the node RG (cannot be opted out). This module does NOT grant any
+  Key Vault RBAC to that identity — apps are expected to provide their
+  own access via Microsoft Entra Workload Identity (per-pod federated
+  credentials), which the cluster already supports (oidc_issuer_enabled
+  + workload_identity_enabled).
+  EOT
+  default     = false
+}
+
+variable "secrets_store_csi_driver_rotation_enabled" {
+  type        = bool
+  description = "Enable secret auto-rotation on the Secrets Store CSI Driver (recommended)."
+  default     = true
+}
+
+variable "secrets_store_csi_driver_rotation_interval" {
+  type        = string
+  description = "Polling interval for secret rotation (ISO 8601 duration or Go duration). Microsoft default is 2m."
+  default     = "2m"
+}
+
 ###############################################################
 # TAGS
 ###############################################################
