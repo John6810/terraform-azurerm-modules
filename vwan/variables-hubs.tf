@@ -60,3 +60,14 @@ variable "bgp_connections" {
   }))
   default = {}
 }
+
+variable "express_route_connections" {
+  description = "Map of ExpressRoute Connections binding an ExpressRoute circuit AzurePrivatePeering to a hub ER Gateway"
+  type = map(object({
+    virtual_hub_key                  = string
+    express_route_circuit_peering_id = string
+    authorization_key                = optional(string)
+    routing_weight                   = optional(number, 0)
+  }))
+  default = {}
+}
