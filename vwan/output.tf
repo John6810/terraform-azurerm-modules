@@ -75,6 +75,11 @@ output "express_route_gateway_ids" {
   value       = { for k, v in azurerm_express_route_gateway.hub_er_gateways : k => v.id }
 }
 
+output "express_route_connection_ids" {
+  description = "Map of ExpressRoute Connection IDs (circuit peering ↔ hub ER GW)"
+  value       = { for k, v in azurerm_express_route_connection.hub_er_connections : k => v.id }
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIREWALL OUTPUTS
 # ═══════════════════════════════════════════════════════════════════════════════

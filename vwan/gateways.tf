@@ -40,6 +40,20 @@ resource "azurerm_express_route_gateway" "hub_er_gateways" {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# EXPRESS ROUTE CONNECTIONS (CIRCUIT PEERING ↔ HUB ER GATEWAY)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+resource "azurerm_express_route_connection" "hub_er_connections" {
+  for_each = var.express_route_connections
+
+  name                             = "${var.name}-erconn-${each.key}"
+  express_route_gateway_id         = azurerm_express_route_gateway.hub_er_gateways[each.value.virtual_hub_key].id
+  express_route_circuit_peering_id = each.value.express_route_circuit_peering_id
+  authorization_key                = each.value.authorization_key
+  routing_weight                   = each.value.routing_weight
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # AZURE FIREWALL IN VIRTUAL HUBS
 # ═══════════════════════════════════════════════════════════════════════════════
 
