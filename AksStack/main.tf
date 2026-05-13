@@ -331,6 +331,9 @@ module "aks" {
   # - cp_kv_contributor: required for AKS to approve its auto-created PE
   #   connection on the KV when KMS Private fires (LinkedAuthorizationFailed
   #   on PrivateEndpointConnectionsApproval/action otherwise)
+  # - cp_kv_crypto_user: required for the CP identity to Wrap/Unwrap on the
+  #   etcd CMK in KMS Private mode (kms-plugin runs as cluster identity in
+  #   private mode, not kubelet — see rbac.tf RBAC #1d)
   # - module.kv_pe: PE on the etcd CMK KV (network path)
   # - time_sleep.wait_for_dine_dns: ALZ DINE Policy DNS group propagation
   #   delay — the AKS create call resolves the KV via privatelink.vaultcore
@@ -341,6 +344,7 @@ module "aks" {
     azurerm_role_assignment.cp_apiserver_subnet_network_contrib,
     azurerm_role_assignment.cp_kubelet_mi_operator,
     azurerm_role_assignment.cp_kv_contributor,
+    azurerm_role_assignment.cp_kv_crypto_user,
     module.kv_pe,
     time_sleep.wait_for_dine_dns,
   ]

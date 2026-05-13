@@ -69,6 +69,40 @@ resource "azurerm_role_assignment" "cp_kv_contributor" {
 }
 
 ###############################################################
+# RBAC #1d: CP UAMI → Key Vault Crypto User on the etcd KV
+#
+# Required when KMS Private is enabled (the AKS kms-plugin in
+# private mode runs as the *cluster identity*, not the kubelet).
+# It needs Wrap / Unwrap on the etcd CMK to encrypt and decrypt
+# the etcd data-encryption keys.
+#
+# Microsoft docs (use-kms-etcd-encryption.md, "Grant access" section):
+#   - Public mode  → kubelet identity needs Wrap/Unwrap (covered by
+#                    RBAC #1 above, "kubelet_kv_crypto_user").
+#   - Private mode → cluster (CP) identity needs Wrap/Unwrap.
+#
+# We keep BOTH (kubelet + CP) on Crypto User. Cost is zero (RBAC
+# assignments are free, no data-plane traffic) and it makes the
+# cluster mode-agnostic — switching public ↔ private requires no
+# RBAC change.
+#
+# Without this on private mode, etcd basic enc/dec keeps working
+# off the cached DEK but periodic key rotation and reconnects
+# silently fail until the cache expires, after which etcd writes
+# start returning errors. Validated against the apimanager AKS
+# setup (landing-zone/corporate/apimanager/rbac-api/ already grants
+# this role via `cluster_kv_crypto_user`).
+###############################################################
+resource "azurerm_role_assignment" "cp_kv_crypto_user" {
+  count = var.kms_v2_enabled ? 1 : 0
+
+  scope                = module.kv.id
+  role_definition_name = "Key Vault Crypto User"
+  principal_id         = module.id_cp.principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+###############################################################
 # RBAC #2: CP UAMI → Network Contributor on node subnet
 #
 # Required so AKS can create the load balancer NICs, attach the
