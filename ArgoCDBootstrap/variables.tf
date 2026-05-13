@@ -91,6 +91,12 @@ variable "sync_policy_self_heal" {
   default     = true
 }
 
+variable "directory_recurse" {
+  type        = bool
+  description = "When true, Argo CD discovers manifests recursively under `application_path`. Required if you organise manifests in subdirectories (e.g. platform/ingresses/, platform/network-policies/, ...). Default true — platform/ usually has subfolders."
+  default     = true
+}
+
 variable "argocd_namespace" {
   type        = string
   description = "Namespace where Argo CD is installed (where the repo secret and Application CRD are created)."

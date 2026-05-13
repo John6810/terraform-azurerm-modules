@@ -54,6 +54,10 @@ resource "kubernetes_manifest" "application" {
         repoURL        = var.repo_url
         targetRevision = var.application_target_revision
         path           = var.application_path
+
+        directory = {
+          recurse = var.directory_recurse
+        }
       }
 
       destination = {
