@@ -99,6 +99,16 @@ output "oidc_issuer_url" {
   value       = module.aks.oidc_issuer_url
 }
 
+output "web_app_routing_identity_principal_id" {
+  description = "Principal ID of the auto-created UAMI used by the Application Routing addon (for cross-sub RBAC grants on Azure DNS zones)."
+  value       = module.aks.web_app_routing_identity_principal_id
+}
+
+output "web_app_routing_identity_client_id" {
+  description = "Client ID of the auto-created UAMI used by the Application Routing addon."
+  value       = module.aks.web_app_routing_identity_client_id
+}
+
 # ─── Post-deploy hint ────────────────────────────────────────
 output "post_deploy_az_cli_commands" {
   description = "Commands to run AFTER apply to enable KMS v2 + API Server VNet Integration (azurerm v4 limitation). The KMS step is required even when api_server_subnet_id is null if you want Private network_access on the KV."

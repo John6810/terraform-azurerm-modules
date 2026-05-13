@@ -32,6 +32,16 @@ output "kubelet_identity" {
   value       = azurerm_kubernetes_cluster.this.kubelet_identity
 }
 
+output "web_app_routing_identity_principal_id" {
+  description = "Principal (object) ID of the auto-created UAMI used by the Application Routing addon. Null when enable_web_app_routing = false."
+  value       = try(azurerm_kubernetes_cluster.this.web_app_routing[0].web_app_routing_identity[0].object_id, null)
+}
+
+output "web_app_routing_identity_client_id" {
+  description = "Client ID of the auto-created UAMI used by the Application Routing addon. Null when enable_web_app_routing = false."
+  value       = try(azurerm_kubernetes_cluster.this.web_app_routing[0].web_app_routing_identity[0].client_id, null)
+}
+
 output "resource" {
   description = "The complete AKS cluster resource object"
   value       = azurerm_kubernetes_cluster.this
