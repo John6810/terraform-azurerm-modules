@@ -54,6 +54,14 @@ resource "tls_self_signed_cert" "this" {
 # the result as a standard Kubernetes TLS Secret in the Ingress's
 # namespace, which nginx-controller consumes via `tls.secretName`.
 #
+# Key format: Azure KV's PEM import path REQUIRES PKCS#8 (`-----BEGIN
+# PRIVATE KEY-----`), not PKCS#1 (`-----BEGIN RSA PRIVATE KEY-----`).
+# The `tls` provider exposes both: `.private_key_pem` is PKCS#1 (used
+# by tls_self_signed_cert above, which accepts either), and
+# `.private_key_pem_pkcs8` is PKCS#8 — what KV wants. Passing PKCS#1
+# yields a 400 "PEM X.509 certificate content is in an unexpected
+# format" from Azure with no useful diagnostic.
+#
 # `issuer_parameters.name = "Self"` is the marker for imports. The
 # certificate_policy block must be present (Azure requirement) even
 # for imports — it dictates what would happen on renewal.
@@ -63,7 +71,7 @@ resource "azurerm_key_vault_certificate" "this" {
   key_vault_id = var.key_vault_id
 
   certificate {
-    contents = base64encode("${tls_self_signed_cert.this.cert_pem}${tls_private_key.this.private_key_pem}")
+    contents = base64encode("${tls_self_signed_cert.this.cert_pem}${tls_private_key.this.private_key_pem_pkcs8}")
   }
 
   certificate_policy {
