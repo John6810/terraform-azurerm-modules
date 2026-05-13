@@ -64,9 +64,9 @@ variable "release_train" {
   default     = null
 }
 
-variable "version" {
+variable "extension_version" {
   type        = string
-  description = "Pin a specific extension version (e.g. \"1.0.0-preview\"). Mutually exclusive with release_train."
+  description = "Pin a specific extension version (e.g. \"1.0.0-preview\"). Mutually exclusive with release_train. Named extension_version (not version) because version is a reserved name on module blocks."
   default     = null
 }
 

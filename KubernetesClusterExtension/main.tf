@@ -18,7 +18,7 @@ resource "azurerm_kubernetes_cluster_extension" "this" {
   target_namespace  = var.target_namespace
 
   release_train = var.release_train
-  version       = var.version
+  version       = var.extension_version
 
   configuration_settings           = var.configuration_settings
   configuration_protected_settings = var.configuration_protected_settings
