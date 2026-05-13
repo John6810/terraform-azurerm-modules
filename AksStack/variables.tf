@@ -549,6 +549,29 @@ variable "secrets_store_csi_driver_rotation_interval" {
   default     = "2m"
 }
 
+variable "enable_web_app_routing" {
+  type        = bool
+  description = <<-EOT
+  Enable the AKS Application Routing addon (managed nginx ingress).
+  Modern AKS-native ingress; supports both internal (private LB) and
+  external (Internet) via web_app_routing_default_nginx_controller or
+  per-Ingress annotation.
+  EOT
+  default     = false
+}
+
+variable "web_app_routing_dns_zone_ids" {
+  type        = list(string)
+  description = "Azure DNS zone IDs to integrate (BYO-DNS). Empty list = no DNS integration."
+  default     = []
+}
+
+variable "web_app_routing_default_nginx_controller" {
+  type        = string
+  description = "Default ingress controller mode: None | Internal | External | AnnotationControlled. null = AnnotationControlled (azurerm default)."
+  default     = null
+}
+
 variable "maintenance_window" {
   description = "AKS upgrade maintenance window. day = day-of-week, hour_start/end in UTC."
   type = object({

@@ -552,6 +552,49 @@ variable "secrets_store_csi_driver_rotation_interval" {
 
 ###############################################################
 # TAGS
+variable "enable_web_app_routing" {
+  type        = bool
+  description = <<-EOT
+  Enable the AKS Application Routing addon (managed nginx ingress
+  controller). Modern Microsoft Terraform pattern for ingress —
+  replaces AGIC; complementary to AGC (AGC handles public-only ingress,
+  Application Routing supports both public + private via the
+  default_nginx_controller knob).
+
+  When true, AKS installs the ingress-nginx-controller in the
+  `app-routing-system` namespace and creates the
+  `webapprouting.kubernetes.azure.com` IngressClass. Apps consume it
+  via standard k8s Ingress resources.
+  EOT
+  default     = false
+}
+
+variable "web_app_routing_dns_zone_ids" {
+  type        = list(string)
+  description = "List of Azure DNS zone IDs to integrate with the addon (BYO-DNS). Empty list = no DNS integration (Ingress hostnames resolved manually)."
+  default     = []
+}
+
+variable "web_app_routing_default_nginx_controller" {
+  type        = string
+  description = <<-EOT
+  Default nginx controller mode. Allowed:
+    - "None"                 : no default controller (deploy your own NginxIngressController CRD)
+    - "Internal"             : private LB (internal IP in the cluster VNet)
+    - "External"             : public LB (Internet-facing)
+    - "AnnotationControlled" : per-Ingress decision via the
+      `service.beta.kubernetes.io/azure-load-balancer-internal` annotation
+      (default behaviour of the addon).
+  Defaults to null → azurerm provider applies "AnnotationControlled".
+  EOT
+  default     = null
+
+  validation {
+    condition     = var.web_app_routing_default_nginx_controller == null || contains(["None", "Internal", "External", "AnnotationControlled"], coalesce(var.web_app_routing_default_nginx_controller, "AnnotationControlled"))
+    error_message = "web_app_routing_default_nginx_controller must be one of: None, Internal, External, AnnotationControlled."
+  }
+}
+
 ###############################################################
 variable "tags" {
   type        = map(string)

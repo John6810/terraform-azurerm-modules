@@ -329,6 +329,12 @@ module "aks" {
   secrets_store_csi_driver_rotation_enabled  = var.secrets_store_csi_driver_rotation_enabled
   secrets_store_csi_driver_rotation_interval = var.secrets_store_csi_driver_rotation_interval
 
+  # Application Routing addon (managed nginx ingress). Modern AKS-native
+  # ingress; supports both internal (private LB) and external (Internet).
+  enable_web_app_routing                   = var.enable_web_app_routing
+  web_app_routing_dns_zone_ids             = var.web_app_routing_dns_zone_ids
+  web_app_routing_default_nginx_controller = var.web_app_routing_default_nginx_controller
+
   tags = local.effective_tags
 
   # Sequenced creation order:

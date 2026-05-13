@@ -144,6 +144,24 @@ resource "azurerm_kubernetes_cluster" "this" {
     }
   }
 
+  # ─── Application Routing addon (managed nginx ingress) ───────
+  # Modern AKS-native ingress (replaces AGIC). Installs nginx-ingress-
+  # controller in app-routing-system namespace + the IngressClass
+  # `webapprouting.kubernetes.azure.com`. Supports both internal (private
+  # LB in the cluster VNet) and external (Internet) via the
+  # default_nginx_controller knob, or per-Ingress annotation.
+  #
+  # Complementary to AGC: AGC handles public-only ingress (Internet-
+  # facing); Application Routing covers internal/private + AGC's
+  # public-only gap (admin UIs, internal services).
+  dynamic "web_app_routing" {
+    for_each = var.enable_web_app_routing ? [1] : []
+    content {
+      dns_zone_ids             = var.web_app_routing_dns_zone_ids
+      default_nginx_controller = var.web_app_routing_default_nginx_controller
+    }
+  }
+
   # ─── Workload Autoscaler Profile (VPA + KEDA) ──────────────
   # Enables the VPA addon (recommender, updater, admission-controller).
   # Per-workload mode (Off/Initial/Auto) configured via VerticalPodAutoscaler
